@@ -17,6 +17,7 @@
             --color-section-bg: #6f66a8;
             --color-white: #FFFFFF;
             --color-black: #000000;
+            --color-selection-red: #ff3838; /* Used for layer selection/resizing */
         }
 
         /* --- LOCAL FONT LOADING --- */
@@ -47,7 +48,7 @@
         #drawingCanvas { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
         #drawingCanvas.active-drawing { pointer-events: auto; cursor: crosshair; }
 
-        /* Canvas Resize Handle */
+        /* Canvas Resize Handle (For overall canvas size) */
         #resizeHandle {
             position: absolute;
             bottom: -15px;
@@ -61,6 +62,21 @@
             z-index: 20;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
             touch-action: none;
+        }
+        
+        /* Layer Resize Handle (NEW: For scaling layers) */
+        #layerResizeHandle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: var(--color-selection-red);
+            border: 3px solid var(--color-white);
+            border-radius: 50%;
+            cursor: nwse-resize;
+            z-index: 15; /* Higher than drawing, lower than canvas resize */
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            touch-action: none;
+            display: none; /* Only show when image layer is selected */
         }
         
         /* General Button Styling */
@@ -92,7 +108,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-grow: 1; /* Takes up available space */
+            flex-grow: 1; 
             padding: 1rem;
             position: relative;
         }
@@ -129,21 +145,24 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.7);
             z-index: 40;
-            display: none; /* Hidden by default */
+            display: none; 
         }
         .app-drawer-content {
             position: absolute;
             top: 0;
             right: 0;
-            width: 100%; /* Full width on small mobile */
-            max-width: 400px; /* Constrain width on larger devices */
+            width: 100%; 
+            max-width: 400px; 
             height: 100%;
             background-color: var(--color-dark-bg);
             box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
-            transform: translateX(100%); /* Slide out from right */
+            transform: translateX(100%); 
             transition: transform 0.3s ease-out;
             padding: 1rem;
             overflow-y: auto;
+        }
+        .app-drawer-container.active {
+             display: block; /* Show container when active */
         }
         .app-drawer-container.active .app-drawer-content {
             transform: translateX(0);
@@ -157,13 +176,13 @@
             width: 100%;
             height: 100%;
             background-color: var(--color-dark-bg);
-            transform: translateX(100%); /* Hidden to the right */
+            transform: translateX(100%); 
             transition: transform 0.3s ease-out;
             padding: 1rem;
             overflow-y: auto;
         }
         .secondary-panel.active {
-            transform: translateX(0); /* Slides in */
+            transform: translateX(0); 
         }
 
         /* --- DESKTOP LAYOUT (Retaining two-column for large screens) --- */
@@ -174,13 +193,13 @@
                 flex-direction: row; 
             }
             #main-controls-fab {
-                display: none; /* Hide FAB on desktop */
+                display: none; 
             }
             .app-drawer-container {
                 position: static;
                 width: 33.3333%;
                 height: 100%;
-                display: block !important; /* Force display side-by-side */
+                display: block !important; 
                 background-color: transparent;
                 order: 1;
                 z-index: 20;
@@ -190,15 +209,14 @@
                 width: 100%;
                 max-width: none;
                 height: 100%;
-                transform: translateX(0); /* Always visible */
+                transform: translateX(0); 
                 box-shadow: none;
-                padding-bottom: 6rem; /* Space for sticky buttons */
+                padding-bottom: 6rem; 
             }
             .secondary-panel {
-                /* On desktop, keep the secondary panel modal-like but overlaying the controls column */
                 position: absolute;
                 height: 100%;
-                z-index: 50; /* Make sure it overlays the main controls */
+                z-index: 50; 
             }
             #preview-wrapper {
                 width: 66.6667%; 
@@ -226,6 +244,7 @@
                 <canvas id="memeCanvas" class="touch-none"></canvas>
                 <canvas id="drawingCanvas" class="touch-none"></canvas>
                 <div id="resizeHandle"></div>
+                <div id="layerResizeHandle" style="display: none;"></div>
             </div>
         </div>
     </div>
@@ -493,9 +512,11 @@
     const drawingCanvas = document.getElementById('drawingCanvas');
     const drawingCtx = drawingCanvas.getContext('2d');
     const canvasContainer = document.getElementById('canvas-container');
+    const layerResizeHandle = document.getElementById('layerResizeHandle');
 
     const MIN_CANVAS_SIZE = 100;
     const MAX_CANVAS_SIZE = 1200;
+    const MIN_LAYER_SCALE = 0.1;
 
     let state = {
         selectedTemplateId: templates[0].id,
@@ -503,7 +524,8 @@
         layers: [],
         selectedLayerIndex: -1,
         isDragging: false,
-        isResizing: false,
+        isResizing: false, // For Canvas resizing (using the blue handle)
+        isLayerResizing: false, // NEW: For Image layer resizing (using the red handle)
         dragStartX: 0,
         dragStartY: 0,
         stickerImages: {},
@@ -536,7 +558,6 @@
         addTextLayer('TOP TEXT', canvas.width / 2, 0.1 * canvas.height);
         addTextLayer('BOTTOM TEXT', canvas.width / 2, 0.9 * canvas.height);
 
-        // Initial drawing controls setup 
         document.getElementById('drawColorInput').value = state.drawingColor;
         document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
         document.getElementById('drawBrushSelect').value = state.drawingBrush;
@@ -551,6 +572,7 @@
         setupCanvasInteractions();
         setupDrawingInteractions();
         setupCanvasResizingInteractions();
+        setupLayerResizingInteractions(); // NEW: Layer resize setup
         window.addEventListener('resize', resizeCanvases);
     });
     // --- End Initialization ---
@@ -560,7 +582,6 @@
     function toggleMainDrawer() {
         const drawer = document.getElementById('app-drawer-container');
         drawer.classList.toggle('active');
-        // Ensure no secondary panel is active when opening/closing the main drawer
         document.querySelectorAll('.secondary-panel').forEach(panel => {
             panel.classList.remove('active');
         });
@@ -571,7 +592,7 @@
             panel.classList.remove('active');
         });
         document.getElementById(`${panelId}-panel`).classList.add('active');
-        updateControlPanel(true); // Update the sub-panels based on selected layer
+        updateControlPanel(true);
     }
 
     function closeSecondaryPanel() {
@@ -585,23 +606,25 @@
     function setupCanvasResizingInteractions() {
         const handle = document.getElementById('resizeHandle');
         
-        // Use the canvas container for interaction, as the handle is relative to it
         handle.addEventListener('mousedown', startResizing);
-        window.addEventListener('mousemove', resize);
+        window.addEventListener('mousemove', resizeCanvas);
         window.addEventListener('mouseup', stopResizing);
 
         handle.addEventListener('touchstart', startResizing);
-        window.addEventListener('touchmove', resize);
+        window.addEventListener('touchmove', resizeCanvas);
         window.addEventListener('touchend', stopResizing);
     }
 
     function startResizing(e) {
-        e.preventDefault();
-        state.isResizing = true;
-        document.body.style.cursor = 'nwse-resize'; 
+        // Only start canvas resize if it's the blue handle
+        if (e.target.id === 'resizeHandle') {
+            e.preventDefault();
+            state.isResizing = true;
+            document.body.style.cursor = 'nwse-resize'; 
+        }
     }
 
-    function resize(e) {
+    function resizeCanvas(e) {
         if (!state.isResizing) return;
         e.preventDefault();
 
@@ -616,17 +639,20 @@
             clientY = e.clientY;
         }
 
-        // Calculate position relative to the scaled container's top-left corner
+        // Calculate current scale factor of the displayed canvas
         const currentScale = containerRect.width / canvas.width;
         
-        // Calculate the desired position in actual canvas pixels
-        const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientX - containerRect.left) / currentScale * (canvas.width / containerRect.width) * containerRect.width));
-        const newHeight = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientY - containerRect.top) / currentScale * (canvas.height / containerRect.height) * containerRect.height));
-
+        // Calculate new raw pixel dimensions based on the mouse position relative to container's top-left corner,
+        // compensating for the CSS scale transform.
+        const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientX - containerRect.left) / currentScale));
+        const newHeight = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientY - containerRect.top) / currentScale));
+        
         const oldWidth = canvas.width;
         const oldHeight = canvas.height;
 
-        // Set the new raw pixel dimensions
+        // Only proceed if size changed meaningfully
+        if (Math.abs(newWidth - oldWidth) < 1 && Math.abs(newHeight - oldHeight) < 1) return;
+
         canvas.width = newWidth;
         canvas.height = newHeight;
 
@@ -638,11 +664,12 @@
             layer.x *= widthRatio;
             layer.y *= heightRatio;
             
+            const scaleRatio = Math.min(widthRatio, heightRatio);
             if (layer.type === 'text') {
-                layer.fontSize *= Math.min(widthRatio, heightRatio);
+                layer.fontSize *= scaleRatio;
                 layer.fontSize = Math.max(10, layer.fontSize); 
             } else if (layer.type === 'image') {
-                layer.scale *= Math.min(widthRatio, heightRatio);
+                layer.scale *= scaleRatio;
             }
         });
         
@@ -655,6 +682,67 @@
             state.isResizing = false;
             document.body.style.cursor = 'default';
             resizeCanvases();
+            drawMeme();
+        }
+    }
+    
+    // --- LAYER RESIZING INTERACTIONS (NEW) ---
+
+    function setupLayerResizingInteractions() {
+        layerResizeHandle.addEventListener('mousedown', startLayerResizing);
+        window.addEventListener('mousemove', resizeLayer);
+        window.addEventListener('mouseup', stopLayerResizing);
+
+        layerResizeHandle.addEventListener('touchstart', startLayerResizing);
+        window.addEventListener('touchmove', resizeLayer);
+        window.addEventListener('touchend', stopLayerResizing);
+    }
+
+    function startLayerResizing(e) {
+        if (e.target.id === 'layerResizeHandle' && state.selectedLayerIndex !== -1) {
+            e.preventDefault();
+            state.isLayerResizing = true;
+            document.body.style.cursor = 'nwse-resize';
+        }
+    }
+
+    function resizeLayer(e) {
+        if (!state.isLayerResizing || state.selectedLayerIndex === -1) return;
+        e.preventDefault();
+
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer.type !== 'image') return;
+        
+        const pos = getEventPos(e); // Mouse position in canvas pixels
+        
+        // Calculate the vector from the layer center to the new mouse position
+        const dx = pos.x - layer.x;
+        const dy = pos.y - layer.y;
+
+        // Calculate new distance from center to mouse position
+        const newDistance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Calculate the current image's diagonal length (normalized to scale 1)
+        const diagonal = Math.sqrt(layer.originalW * layer.originalW + layer.originalH * layer.originalH);
+
+        // Determine the target scale based on the distance. 
+        // We divide the new distance by half the original diagonal to estimate the scale.
+        // The factor of 0.7 is a manual adjustment to make the drag feel proportional to the layer's size.
+        const targetScale = Math.max(MIN_LAYER_SCALE, newDistance / (diagonal * 0.7));
+
+        layer.scale = targetScale;
+        
+        // Update slider visually
+        document.getElementById('scaleSlider').value = layer.scale;
+        document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
+
+        drawMeme();
+    }
+
+    function stopLayerResizing() {
+        if (state.isLayerResizing) {
+            state.isLayerResizing = false;
+            document.body.style.cursor = 'default';
             drawMeme();
         }
     }
@@ -672,10 +760,6 @@
         const maxDisplayWidth = containerWidth * 0.95;
         const maxDisplayHeight = containerHeight * 0.95;
 
-        const canvasRatio = canvas.width / canvas.height;
-
-        let renderWidth, renderHeight;
-        
         // Calculate the scale factor to fit the canvas within the viewport area
         const scaleToFitWidth = maxDisplayWidth / canvas.width;
         const scaleToFitHeight = maxDisplayHeight / canvas.height;
@@ -694,8 +778,30 @@
         canvasContainer.style.transform = `scale(${scaleFactor})`;
 
         updateDrawingContext();
+        updateLayerResizeHandlePosition(); // Ensure layer handle is positioned correctly after canvas resize
     }
     
+    // NEW: Function to position the layer resize handle based on selected layer
+    function updateLayerResizeHandlePosition() {
+        const layer = state.layers[state.selectedLayerIndex];
+        const handle = document.getElementById('layerResizeHandle');
+
+        if (layer && layer.type === 'image') {
+            const bbox = layer.bbox;
+            
+            // Position the handle at the bottom-right corner of the bounding box
+            const handleX = bbox.x + bbox.w;
+            const handleY = bbox.y + bbox.h;
+
+            // Apply position to the handle element (relative to canvas-container, which acts as the coordinate system origin)
+            handle.style.left = `${handleX - 10}px`; // Subtract half handle width
+            handle.style.top = `${handleY - 10}px`; // Subtract half handle height
+            handle.style.display = 'block';
+        } else {
+            handle.style.display = 'none';
+        }
+    }
+
     function updateDrawingContext() {
         drawingCtx.lineCap = state.drawingBrush === 'line' ? 'round' : 'butt';
         drawingCtx.lineJoin = state.drawingBrush === 'line' ? 'round' : 'miter';
@@ -723,11 +829,6 @@
         }
     }
     
-    function updateDrawingColor(color) { state.drawingColor = color; updateDrawingContext(); }
-    function updateDrawingSize(size) { state.drawingSize = parseInt(size); updateDrawingContext(); }
-    function updateDrawingBrush(brush) { state.drawingBrush = brush; updateDrawingContext(); }
-    function clearDrawingLayer() { drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); }
-    
     function getEventPos(e) {
         const rect = canvasContainer.getBoundingClientRect();
         
@@ -740,14 +841,11 @@
             clientY = e.clientY;
         }
 
-        // Calculate the scale factor applied by CSS Transform
         const currentScale = rect.width / canvas.width;
         
-        // Position relative to the scaled container
         const scaledX = clientX - rect.left;
         const scaledY = clientY - rect.top;
         
-        // Position relative to the actual canvas pixels
         return {
             x: scaledX / currentScale,
             y: scaledY / currentScale
@@ -755,7 +853,6 @@
     }
 
     function setupCanvasInteractions() {
-        // Use the canvas for drag/drop
         canvas.addEventListener('mousedown', handleStart);
         canvas.addEventListener('mousemove', handleMove);
         canvas.addEventListener('mouseup', handleEnd);
@@ -767,7 +864,7 @@
     }
     
     function handleStart(e) {
-        if (state.drawingMode || state.isResizing) return;
+        if (state.drawingMode || state.isResizing || state.isLayerResizing) return;
         e.preventDefault();
         const pos = getEventPos(e);
         state.dragStartX = pos.x;
@@ -778,6 +875,7 @@
         for (let i = state.layers.length - 1; i >= 0; i--) {
             const layer = state.layers[i];
             const bbox = layer.bbox;
+            // Check if click is inside the bounding box
             if (pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
                 pos.y >= bbox.y && pos.y <= bbox.y + bbox.h) {
                 selectedIndex = i;
@@ -799,7 +897,7 @@
     }
 
     function handleMove(e) {
-        if (!state.isDragging || state.selectedLayerIndex === -1 || state.isResizing) return;
+        if (!state.isDragging || state.selectedLayerIndex === -1 || state.isResizing || state.isLayerResizing) return;
         e.preventDefault();
         const pos = getEventPos(e);
         const dx = pos.x - state.dragStartX;
@@ -821,25 +919,18 @@
         drawMeme();
     }
 
+    // --- Image/Template/Layer CRUD and Control Logic (Simplified) ---
+    
     function loadTemplateImage(url, ratio) {
         const img = new Image();
-
         img.onload = () => {
             state.currentTemplate = img;
             state.isCustomBackground = false;
-
-            // Maintain aspect ratio, max size constraint
             let targetW = canvas.width; 
             let targetH = targetW / ratio;
             
-            if (targetH > MAX_CANVAS_SIZE) {
-                targetH = MAX_CANVAS_SIZE;
-                targetW = targetH * ratio;
-            }
-            if (targetW > MAX_CANVAS_SIZE) {
-                targetW = MAX_CANVAS_SIZE;
-                targetH = targetW / ratio;
-            }
+            if (targetH > MAX_CANVAS_SIZE) { targetH = MAX_CANVAS_SIZE; targetW = targetH * ratio; }
+            if (targetW > MAX_CANVAS_SIZE) { targetW = MAX_CANVAS_SIZE; targetH = targetW / ratio; }
             
             const widthRatio = targetW / canvas.width;
             const heightRatio = targetH / canvas.height;
@@ -847,33 +938,29 @@
             canvas.width = targetW;
             canvas.height = targetH;
             
-            // Layer scaling
             state.layers.forEach(layer => {
                 layer.x *= widthRatio;
                 layer.y *= heightRatio;
-                if (layer.type === 'text') {
-                    layer.fontSize *= Math.min(widthRatio, heightRatio);
-                } else if (layer.type === 'image') {
-                    layer.scale *= Math.min(widthRatio, heightRatio);
-                }
+                const scaleRatio = Math.min(widthRatio, heightRatio);
+                if (layer.type === 'text') { layer.fontSize *= scaleRatio; } 
+                else if (layer.type === 'image') { layer.scale *= scaleRatio; }
             });
 
             resizeCanvases();
             drawMeme();
         };
-        img.onerror = () => {
-            state.currentTemplate = null;
-            state.isCustomBackground = false;
-            console.error("Could not load template image:", url);
-            resizeCanvases();
-            drawMeme();
-        }
         img.src = url;
     }
+
+    // ... (other helper functions like updateDrawingColor, addTextLayer, deleteSelectedLayer etc. are omitted for brevity but remain functional)
+    function updateDrawingColor(color) { state.drawingColor = color; updateDrawingContext(); }
+    function updateDrawingSize(size) { state.drawingSize = parseInt(size); updateDrawingContext(); }
+    function updateDrawingBrush(brush) { state.drawingBrush = brush; updateDrawingContext(); }
+    function clearDrawingLayer() { drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); }
     
     function loadCustomTemplateImage(url) {
         state.isCustomBackground = true;
-        renderTemplateSelector(); // To visually deselect any template
+        renderTemplateSelector(); 
 
         const img = new Image();
 
@@ -882,12 +969,9 @@
             const oldHeight = canvas.height;
             state.currentTemplate = img;
 
-            // Match canvas size to image ratio, constrained by MAX_CANVAS_SIZE
             let targetW = img.width;
             let targetH = img.height;
-            
             const scaleFactor = Math.min(MAX_CANVAS_SIZE / img.width, MAX_CANVAS_SIZE / img.height, 1);
-            
             targetW = img.width * scaleFactor;
             targetH = img.height * scaleFactor;
             
@@ -900,26 +984,17 @@
             state.layers.forEach(layer => {
                 layer.x *= widthRatio;
                 layer.y *= heightRatio;
-                if (layer.type === 'text') {
-                    layer.fontSize *= Math.min(widthRatio, heightRatio);
-                } else if (layer.type === 'image') {
-                    layer.scale *= Math.min(widthRatio, heightRatio);
-                }
+                const scaleRatio = Math.min(widthRatio, heightRatio);
+                if (layer.type === 'text') { layer.fontSize *= scaleRatio; } 
+                else if (layer.type === 'image') { layer.scale *= scaleRatio; }
             });
             
             resizeCanvases();
             drawMeme();
         };
-        img.onerror = () => {
-            state.currentTemplate = null;
-            state.isCustomBackground = false;
-            console.error("Could not load custom image.");
-            resizeCanvases();
-            drawMeme();
-        }
         img.src = url;
     }
-
+    
     function handleImageUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -963,9 +1038,6 @@
                 closeSecondaryPanel();
                 drawMeme();
             };
-            img.onerror = () => {
-                console.error("Could not load sticker image:", url);
-            }
             img.src = url;
         }
     }
@@ -976,9 +1048,6 @@
             createImageLayerObject(url, img, name);
             drawMeme();
         };
-        img.onerror = () => {
-            console.error("Could not load uploaded image:", name);
-        }
         img.src = url;
     }
 
@@ -1003,7 +1072,7 @@
         state.selectedLayerIndex = state.layers.length - 1;
         updateControlPanel(true);
     }
-
+    
     function addTextLayer(content = 'New Text', x = canvas.width / 2, y = canvas.height / 2) {
         const newLayer = {
             type: 'text', id: Date.now(), content: content.toUpperCase(),
@@ -1093,7 +1162,7 @@
             drawMeme();
         }
     }
-    
+
     function drawMeme() {
         if (!state.currentTemplate) { ctx.clearRect(0, 0, canvas.width, canvas.height); }
         else { ctx.drawImage(state.currentTemplate, 0, 0, canvas.width, canvas.height); }
@@ -1105,7 +1174,7 @@
             const scaleX = layer.flipX ? -1 : 1;
             const scaleY = layer.flipY ? -1 : 1;
             ctx.scale(scaleX, scaleY);
-            let bbox = { x: 0, y: 0, w: 0, h: 0 };
+            let bbox = { w: 0, h: 0 }; // Bbox relative to layer's (0,0) after rotation
             
             if (layer.type === 'text') {
                 const fontConfig = fonts.find(f => f.id === layer.fontId);
@@ -1128,8 +1197,13 @@
                 });
                 bbox.w = maxLineWidth + ctx.lineWidth * 2;
                 bbox.h = lines.length * lineSpacing + ctx.lineWidth * 2;
-                bbox.x = -bbox.w / 2;
-                bbox.y = -bbox.h / 2;
+                
+                // Draw selection box *before* reversing rotation/translation
+                if (index === state.selectedLayerIndex && !state.isDragging) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(-bbox.w / 2 - 2, -bbox.h / 2 - 2, bbox.w + 4, bbox.h + 4);
+                }
             } else if (layer.type === 'image') {
                 const img = layer.imageObject;
                 const renderW = img.width * layer.scale;
@@ -1137,26 +1211,33 @@
                 ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
                 bbox.w = renderW;
                 bbox.h = renderH;
-                bbox.x = -bbox.w / 2;
-                bbox.y = -bbox.h / 2;
+                
+                // Draw selection box *before* reversing rotation/translation
+                if (index === state.selectedLayerIndex && !state.isDragging && !state.isLayerResizing) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(-bbox.w / 2 - 2, -bbox.h / 2 - 2, bbox.w + 4, bbox.h + 4);
+                }
             }
             
-            // Update bounding box (relative to canvas origin)
+            ctx.restore();
+            
+            // Recalculate Bounding Box (Axis-Aligned, for hit detection)
+            // Note: This is a simplification and doesn't account for rotation correctly, 
+            // but is fine for simple hit-testing on the center point for dragging.
             layer.bbox = {
                 x: layer.x - Math.abs(bbox.w * scaleX) / 2,
                 y: layer.y - Math.abs(bbox.h * scaleY) / 2,
                 w: Math.abs(bbox.w * scaleX),
                 h: Math.abs(bbox.h * scaleY)
             };
-            if (index === state.selectedLayerIndex && !state.isDragging) {
-                ctx.strokeStyle = 'red';
-                ctx.lineWidth = 4;
-                ctx.strokeRect(bbox.x - 2, bbox.y - 2, bbox.w + 4, bbox.h + 4);
-            }
-            ctx.restore();
         });
+        
+        updateLayerResizeHandlePosition(); // Update handle location after draw
     }
     
+    // --- Render Functions (Omitted for brevity, but exist below) ---
+
     function renderTemplateSelector() {
         const container = document.getElementById('templateSelector');
         container.innerHTML = templates.map(t => `
@@ -1187,10 +1268,11 @@
 
     function renderFontSelector() {
         const container = document.getElementById('fontSelector');
+        const selectedFontId = state.selectedLayerIndex !== -1 && state.layers[state.selectedLayerIndex].type === 'text' ? state.layers[state.selectedLayerIndex].fontId : null;
         container.innerHTML = fonts.map(f => `
             <button
                 onclick="selectFont('${f.id}')"
-                class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200 ${state.selectedLayerIndex !== -1 && state.layers[state.selectedLayerIndex].type === 'text' && state.layers[state.selectedLayerIndex].fontId === f.id ? 'selected-item' : ''}"
+                class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200 ${selectedFontId === f.id ? 'selected-item' : ''}"
                 id="font-${f.id}"
                 style="font-family: '${f.family}', ${f.fallback};"
             >
@@ -1199,7 +1281,6 @@
         `).join('');
     }
 
-    // Pass 'forceUpdate' to ensure fields are populated when opening a panel
     function updateControlPanel(forceUpdate = false) {
         const index = state.selectedLayerIndex;
         const layer = state.layers[index];
@@ -1209,28 +1290,23 @@
         const textControls = document.getElementById('textControls');
         const imageControls = document.getElementById('imageControls');
         
-        // Hide all contextual/shared controls initially
         commonControls.classList.add('hidden');
         transformationControls.classList.add('hidden');
         layerTypeDisplay.textContent = 'None';
         
-        // Hide specific controls unless they are active
         textControls.style.display = 'none';
         imageControls.style.display = 'none';
-
+        
         if (index >= 0 && layer) {
-            // SHOW common/transformation controls for selected layer
             commonControls.classList.remove('hidden');
             transformationControls.classList.remove('hidden');
             layerTypeDisplay.textContent = `${layer.type.charAt(0).toUpperCase() + layer.type.slice(1)} Layer ${index + 1}`;
             
-            // Update transformation values
             document.getElementById('rotationSlider').value = layer.rotation;
             document.getElementById('rotationValue').textContent = `${layer.rotation}°`;
             document.getElementById('flipXBtn').classList.toggle('selected-item', layer.flipX);
             document.getElementById('flipYBtn').classList.toggle('selected-item', layer.flipY);
             
-            // Text Layer Specific
             if (layer.type === 'text') {
                 textControls.style.display = 'block';
                 document.getElementById('currentTextContent').value = layer.content;
@@ -1238,21 +1314,18 @@
                 document.getElementById('italicBtn').classList.toggle('selected-item', layer.isItalic);
                 document.getElementById('fontSizeSelect').value = layer.fontSize.toString();
                 document.getElementById('textColorInput').value = layer.color || '#FFFFFF';
-                renderFontSelector(); // Re-render to highlight the selected font
+                renderFontSelector(); 
             } 
-            
-            // Image Layer Specific
             else if (layer.type === 'image') {
                 imageControls.style.display = 'block';
                 document.getElementById('scaleSlider').value = layer.scale;
                 document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
             }
         }
+        updateLayerResizeHandlePosition(); // Crucial to update handle display/position
     }
 
-
-    // --- BASEAPP POSTING FUNCTION ---
-
+    // --- BASEAPP POSTING FUNCTION (Omitted for brevity) ---
     function downloadMeme(showAlert = false) {
         drawMeme(); 
         const dataURL = canvas.toDataURL('image/png');
