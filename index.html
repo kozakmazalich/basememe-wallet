@@ -29,8 +29,7 @@
         body {
             font-family: 'AppGlobalFont', sans-serif;
             background-color: var(--color-dark-bg);
-            /* Ensure full height on mobile views */
-            min-height: 100vh; 
+            min-height: 100vh;
         }
 
         /* General Button Styling */
@@ -45,10 +44,6 @@
             box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
             background-color: #8c90b6;
         }
-        .control-button:active {
-            transform: translateY(1px);
-            box-shadow: none;
-        }
         .primary-action-button {
             background-color: var(--color-primary-action);
             color: var(--color-white);
@@ -60,51 +55,107 @@
             border-width: 4px;
             border-color: var(--color-accent) !important;
         }
+
+        /* Canvas container setup */
         .canvas-container {
+            position: relative;
+        }
+
+        /* Canvas overlay for drawing/interaction */
+        #drawingCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
+            z-index: 10;
+            pointer-events: none;
         }
         #drawingCanvas.active-drawing {
             pointer-events: auto;
             cursor: crosshair;
         }
-        /* Mobile-first layout adjustment for canvas */
+        
+        /* Mobile Layout: Canvas first, then Controls, both scroll */
         #preview-wrapper {
-            max-height: 50vh; /* Limit canvas height on small screens */
+            width: 100%;
+            /* min-height: 50vh; <- Removed height limit for flexibility */
             display: flex;
             justify-content: center;
             align-items: center;
+            order: 1; /* Canvas section appears first */
+        }
+        #controls {
+            width: 100%;
+            order: 2; /* Controls section appears second */
         }
 
-        /* --- DESKTOP LAYOUT (Sidebar on left) --- */
+        /* --- DESKTOP/Large Screen LAYOUT (Sidebar on left, Canvas on right) --- */
         @media (min-width: 1024px) {
-            body { height: 100vh; overflow: hidden; display: flex; flex-direction: row; }
-            #controls {
-                position: fixed; top: 0; left: 0; height: 100vh;
-                width: 33.3333%; overflow-y: auto; z-index: 20;
-                /* Adjust spacing for large screens */
-                padding: 1.5rem;
+            body { 
+                height: 100vh; 
+                overflow: hidden; /* Prevent body scroll */
+                display: flex; 
+                flex-direction: row; 
             }
+            /* Controls sidebar: Fixed on left, scrolls independently */
+            #controls {
+                position: fixed; 
+                top: 0; 
+                left: 0; 
+                height: 100vh;
+                width: 33.3333%; 
+                overflow-y: auto; 
+                z-index: 20;
+                order: 1;
+                padding-bottom: 6rem; /* Space for sticky buttons */
+            }
+            /* Preview area: Takes remaining space, centers canvas */
             #preview-wrapper {
-                margin-left: 33.3333%; width: 66.6667%; min-height: 100vh;
-                display: flex; flex-direction: column; justify-content: center;
-                max-height: 100vh; /* Use full height on desktop */
+                margin-left: 33.3333%; 
+                width: 66.6667%; 
+                height: 100vh; /* Use full height */
+                display: flex; 
+                flex-direction: column; 
+                justify-content: center;
+                align-items: center;
+                overflow-y: auto; /* Scroll if canvas overflows view */
+                order: 2;
+            }
+            /* Sticky Footer for Buttons */
+            .sticky-footer {
+                position: sticky; 
+                bottom: 0; 
+                left: 0; 
+                width: 100%; 
+                background-color: var(--color-dark-bg);
+                padding: 1rem 0; 
+                border-top: 1px solid var(--color-accent);
             }
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col lg:flex-row">
 
-<div id="controls" class="w-full lg:w-1/3 bg-[--color-dark-bg] text-white p-4 flex flex-col space-y-4 order-2 lg:order-1 z-10">
+<div id="controls" class="w-full bg-[--color-dark-bg] text-white p-4 flex flex-col space-y-4">
     <h1 class="text-3xl font-extrabold text-[--color-accent] border-b border-[--color-accent] pb-3 mb-4">BaseMeme Layer Editor</h1>
     <p class="text-sm text-gray-200" id="baseAppStatus">BaseApp Status: Connecting...</p>
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Upload Images</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Canvas Size</h2>
+        <div class="flex flex-col space-y-2 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
+            <div class="flex space-x-4">
+                <input type="number" id="canvasWidthInput" value="600" min="100" max="1200" class="w-1/2 p-2 rounded text-black bg-white" placeholder="Width" onchange="updateCanvasDimensions()">
+                <input type="number" id="canvasHeightInput" value="600" min="100" max="1200" class="w-1/2 p-2 rounded text-black bg-white" placeholder="Height" onchange="updateCanvasDimensions()">
+            </div>
+            <p class="text-xs text-gray-200">Set the base resolution. Layers will automatically scale proportionally.</p>
+        </div>
+    </section>
+
+    <hr class="border-[--color-accent]">
+
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Upload Images</h2>
         <div class="flex flex-col space-y-2">
             <input type="file" id="imageUploadInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
             <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'background';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
@@ -120,17 +171,17 @@
     <hr class="border-[--color-accent]">
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Template Background</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Template Background</h2>
         <div id="templateSelector" class="grid grid-cols-3 gap-2"></div>
     </section>
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Add Sticker Item</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Add Sticker Item</h2>
         <div id="stickerSelector" class="grid grid-cols-3 gap-2"></div>
     </section>
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Drawing Tool (Paint)</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Drawing Tool (Paint)</h2>
         <div id="drawingControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
             <button id="drawingModeToggle" onclick="toggleDrawingMode()" class="control-button w-full py-2 font-bold rounded-lg bg-[--color-primary-action] text-white">
                 🔴 Toggle Drawing Mode (OFF)
@@ -168,7 +219,7 @@
     <hr class="border-[--color-accent]">
 
     <section class="flex-grow pt-4">
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">6. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
         <p class="text-sm text-gray-200 mb-2">Tap/click layer on image to edit. **(Must turn OFF Drawing Mode)**</p>
         <div id="contextualControls" class="space-y-4">
 
@@ -239,18 +290,19 @@
             </div>
         </div>
     </section>
-    
-    <button onclick="postToBaseApp()" class="control-button w-full py-3 font-bold rounded-lg shadow-lg mt-6 bg-green-500 hover:bg-green-600 text-white primary-action-button">
-        🚀 Post to BaseApp
-    </button>
-    
-    <button onclick="downloadMeme(true)" class="primary-action-button control-button w-full py-3 font-bold rounded-lg shadow-lg mt-2 bg-[--color-primary-action]">
-        ⬇️ Download BaseMeme (Fallback)
-    </button>
+
+    <div class="sticky-footer flex flex-col space-y-2">
+        <button onclick="postToBaseApp()" class="control-button w-full py-3 font-bold rounded-lg shadow-lg bg-green-500 hover:bg-green-600 text-white primary-action-button">
+            🚀 Post to BaseApp
+        </button>
+        <button onclick="downloadMeme(true)" class="primary-action-button control-button w-full py-3 font-bold rounded-lg shadow-lg bg-[--color-primary-action]">
+            ⬇️ Download BaseMeme (Fallback)
+        </button>
+    </div>
 </div>
 
-<div id="preview-wrapper" class="w-full order-1 lg:order-2">
-    <div id="preview" class="w-full flex items-center justify-center p-4 lg:p-8 z-20 relative h-full">
+<div id="preview-wrapper" class="w-full">
+    <div id="preview" class="w-full flex items-center justify-center p-4 lg:p-8 z-20 relative min-h-[300px]">
         <div class="bg-[--color-accent] p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
             <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-[--color-accent] bg-[--color-accent] shadow-xl touch-none"></canvas>
             <canvas id="drawingCanvas" class="rounded-lg touch-none"></canvas>
@@ -260,14 +312,10 @@
 
 <script>
     // --- SIMULATED BASE ACCOUNT SDK (IMPORTANT) ---
-    // This object simulates the Base Account SDK for authentication.
     const BaseAccountSDK = {
         isConnected: false,
         userInfo: null,
-        
-        // Simulates the automatic universal sign-on (ERC-4337 Smart Wallet)
         connect: function() {
-            // In a real Base App, this happens automatically on load, accessing user's on-chain identity.
             this.userInfo = { 
                 userId: 'baseUser123', 
                 username: 'BasePoster', 
@@ -281,7 +329,7 @@
     // -------------------------------------------
 
 
-    // --- DATA DEFINITIONS & STATE MANAGEMENT (Identical to previous version) ---
+    // --- DATA DEFINITIONS & STATE MANAGEMENT ---
     const templates = [
         { id: 't1', name: 'meme1.png', url: './memes/meme1.png', ratio: 4/3 },
         { id: 't2', name: 'meme2.png', url: './memes/meme2.png', ratio: 16/9 },
@@ -311,8 +359,10 @@
     const ctx = canvas.getContext('2d');
     const drawingCanvas = document.getElementById('drawingCanvas');
     const drawingCtx = drawingCanvas.getContext('2d');
-    const MAX_CANVAS_WIDTH = 800;
-    const MAX_CANVAS_HEIGHT = 800;
+    
+    // Default/Initial Canvas dimensions (user changeable)
+    let DEFAULT_CANVAS_WIDTH = 600;
+    let DEFAULT_CANVAS_HEIGHT = 600;
 
     let state = {
         selectedTemplateId: templates[0].id,
@@ -339,16 +389,24 @@
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
         BaseAccountSDK.connect(); // 1. Auto-connect to BaseApp account
+        
+        // Initialize canvas dimensions based on current inputs
+        canvas.width = DEFAULT_CANVAS_WIDTH;
+        canvas.height = DEFAULT_CANVAS_HEIGHT;
+
         renderTemplateSelector();
         renderStickerSelector();
         renderFontSelector();
         loadTemplateImage(initialTemplate.url, initialTemplate.ratio);
 
-        // Initial text layers
-        addTextLayer('TOP TEXT', MAX_CANVAS_WIDTH / 2, 0.1 * MAX_CANVAS_HEIGHT);
-        addTextLayer('BOTTOM TEXT', MAX_CANVAS_WIDTH / 2, 0.9 * MAX_CANVAS_HEIGHT);
+        // Initial text layers are only added if we don't load a template that overwrites them
+        addTextLayer('TOP TEXT', canvas.width / 2, 0.1 * canvas.height);
+        addTextLayer('BOTTOM TEXT', canvas.width / 2, 0.9 * canvas.height);
 
-        // Set initial drawing controls
+        document.getElementById('canvasWidthInput').value = DEFAULT_CANVAS_WIDTH;
+        document.getElementById('canvasHeightInput').value = DEFAULT_CANVAS_HEIGHT;
+        
+        // Initial drawing controls setup (rest of controls update dynamically)
         document.getElementById('drawColorInput').value = state.drawingColor;
         document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
         document.getElementById('drawBrushSelect').value = state.drawingBrush;
@@ -367,48 +425,102 @@
     // --- End Initialization ---
 
 
-    // --- CORE LOGIC FUNCTIONS (same as previous version) ---
-    // Includes: resizeCanvases, updateDrawingContext, toggleDrawingMode, updateDrawingColor/Size/Brush, 
-    // clearDrawingLayer, getEventPos, setupDrawingInteractions, start/draw/stopDrawing, drawShape,
-    // setupCanvasInteractions, handleStart/Move/End, loadTemplateImage, loadCustomTemplateImage, 
-    // handleImageUpload, selectTemplate, addPresetImageLayer, addImageLayer, createImageLayerObject,
-    // addTextLayer, deleteSelectedLayer, updateRotation, toggleFlip, updateItemScale, 
-    // updateCurrentTextContent, toggleStyle, updateTextColor, updateFontSize, selectFont, 
-    // drawMeme, renderTemplateSelector, renderStickerSelector, renderFontSelector, updateControlPanel
+    // --- CANVAS SIZE CONTROL ---
 
-    // ... (All functions from the previous code block go here to make the file runnable) ...
+    function updateCanvasDimensions() {
+        const newWidth = parseInt(document.getElementById('canvasWidthInput').value) || DEFAULT_CANVAS_WIDTH;
+        const newHeight = parseInt(document.getElementById('canvasHeightInput').value) || DEFAULT_CANVAS_HEIGHT;
+
+        if (isNaN(newWidth) || newWidth < 100 || isNaN(newHeight) || newHeight < 100) {
+            alert("Invalid dimensions. Please enter values between 100 and 1200.");
+            return;
+        }
+
+        // Calculate scaling factor for layers
+        const widthRatio = newWidth / canvas.width;
+        const heightRatio = newHeight / canvas.height;
+
+        // Apply new canvas dimensions
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        DEFAULT_CANVAS_WIDTH = newWidth;
+        DEFAULT_CANVAS_HEIGHT = newHeight;
+
+        // Reposition and rescale existing layers proportionally
+        state.layers.forEach(layer => {
+            layer.x *= widthRatio;
+            layer.y *= heightRatio;
+            
+            // For text, just reposition
+            if (layer.type === 'image') {
+                // Adjust image scale based on average change, or more complex resizing might be needed
+                // For simplicity, we just reposition here, keeping scale relative to the new canvas size
+            }
+        });
+
+        // If using a template, redraw the template to fit the new size
+        if (state.currentTemplate && !state.isCustomBackground) {
+            loadTemplateImage(templates.find(t => t.id === state.selectedTemplateId).url, newWidth / newHeight);
+        } else if (state.currentTemplate && state.isCustomBackground) {
+            // If custom image, we have to reload/rescale the background to the new size
+            loadCustomTemplateImage(state.currentTemplate.src, true); // True forces it to scale to new canvas size
+        } else {
+            resizeCanvases();
+            drawMeme();
+        }
+    }
+
+
+    // --- CORE LOGIC FUNCTIONS (Mostly same as previous version, but using DEFAULT_CANVAS_WIDTH/HEIGHT) ---
+
     function resizeCanvases() {
         if (!canvas.width || !canvas.height) return;
+        
         const previewElement = document.getElementById('preview');
         const containerRect = previewElement.getBoundingClientRect();
         const containerWidth = containerRect.width;
         const containerHeight = containerRect.height;
         const canvasRatio = canvas.width / canvas.height;
+
         let renderWidth, renderHeight;
-        if (containerWidth / containerHeight > canvasRatio) {
-            renderHeight = containerHeight;
-            renderWidth = containerHeight * canvasRatio;
-        } else {
-            renderWidth = containerWidth;
-            renderHeight = containerWidth / canvasRatio;
-        }
+        
+        // Max size for display is 95% of the container dimensions
+        const maxDisplayWidth = containerWidth * 0.95;
+        const maxDisplayHeight = containerHeight * 0.95;
+
+        // Calculate scaling to fit within the preview wrapper
+        const scaleToFitWidth = maxDisplayWidth / canvas.width;
+        const scaleToFitHeight = maxDisplayHeight / canvas.height;
+        
+        const scaleFactor = Math.min(scaleToFitWidth, scaleToFitHeight);
+
+        renderWidth = canvas.width * scaleFactor;
+        renderHeight = canvas.height * scaleFactor;
+        
+        // Apply responsive size to the displayed elements (CSS scaling)
         canvas.style.width = `${renderWidth}px`;
         canvas.style.height = `${renderHeight}px`;
         drawingCanvas.style.width = `${renderWidth}px`;
         drawingCanvas.style.height = `${renderHeight}px`;
+
+        // Ensure drawing canvas matches meme canvas pixel size
         drawingCanvas.width = canvas.width;
         drawingCanvas.height = canvas.height;
+
         updateDrawingContext();
     }
+    
     function updateDrawingContext() {
         drawingCtx.lineCap = state.drawingBrush === 'line' ? 'round' : 'butt';
         drawingCtx.lineJoin = state.drawingBrush === 'line' ? 'round' : 'miter';
         drawingCtx.strokeStyle = state.drawingColor;
         drawingCtx.lineWidth = state.drawingSize;
     }
+
     function toggleDrawingMode() {
         state.drawingMode = !state.drawingMode;
         const button = document.getElementById('drawingModeToggle');
+
         if (state.drawingMode) {
             drawingCanvas.classList.add('active-drawing');
             button.textContent = '🟢 Toggle Drawing Mode (ON)';
@@ -424,10 +536,12 @@
             button.classList.remove('bg-red-500');
         }
     }
+    
     function updateDrawingColor(color) { state.drawingColor = color; updateDrawingContext(); }
     function updateDrawingSize(size) { state.drawingSize = parseInt(size); updateDrawingContext(); }
     function updateDrawingBrush(brush) { state.drawingBrush = brush; updateDrawingContext(); }
     function clearDrawingLayer() { drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); }
+    
     function getEventPos(e) {
         const rect = canvas.getBoundingClientRect();
         let clientX, clientY;
@@ -438,10 +552,16 @@
             clientX = e.clientX;
             clientY = e.clientY;
         }
+
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+        
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
     }
+
     function setupDrawingInteractions() {
         drawingCanvas.addEventListener('mousedown', startDrawing);
         drawingCanvas.addEventListener('mousemove', draw);
@@ -451,6 +571,7 @@
         drawingCanvas.addEventListener('touchmove', draw);
         drawingCanvas.addEventListener('touchend', stopDrawing);
     }
+
     function startDrawing(e) {
         if (!state.drawingMode) return;
         e.preventDefault();
@@ -459,12 +580,15 @@
         state.lastX = pos.x;
         state.lastY = pos.y;
     }
+
     function draw(e) {
         if (!state.isDrawing || !state.drawingMode) return;
         e.preventDefault();
         const pos = getEventPos(e);
+        
         drawingCtx.beginPath();
         drawingCtx.moveTo(state.lastX, state.lastY);
+
         if (state.drawingBrush === 'star') {
             drawShape(drawingCtx, pos.x, pos.y, 10, 5, state.drawingSize/2);
             drawingCtx.fill();
@@ -481,14 +605,17 @@
             drawingCtx.lineTo(pos.x, pos.y);
             drawingCtx.stroke();
         }
+
         state.lastX = pos.x;
         state.lastY = pos.y;
     }
+    
     function drawShape(context, x, y, spikes, outerRadius, innerRadius) {
         let rot = Math.PI / 2 * 3;
         let cx = x;
         let cy = y;
         let step = Math.PI / spikes;
+
         context.beginPath();
         context.moveTo(cx, cy - outerRadius)
         for (i = 0; i < spikes; i++) {
@@ -500,69 +627,81 @@
         context.lineTo(cx, cy - outerRadius);
         context.closePath();
     }
+
     function stopDrawing() { state.isDrawing = false; }
+
     function setupCanvasInteractions() {
         canvas.addEventListener('mousedown', handleStart);
         canvas.addEventListener('mousemove', handleMove);
         canvas.addEventListener('mouseup', handleEnd);
         canvas.addEventListener('mouseout', handleEnd);
+
         canvas.addEventListener('touchstart', handleStart);
         canvas.addEventListener('touchmove', handleMove);
         canvas.addEventListener('touchend', handleEnd);
     }
+    
     function handleStart(e) {
         if (state.drawingMode) return;
         e.preventDefault();
         const pos = getEventPos(e);
         state.dragStartX = pos.x;
         state.dragStartY = pos.y;
+
         state.selectedLayerIndex = state.layers.findIndex(layer => {
             const bbox = layer.bbox;
-            return pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && pos.y >= bbox.y && pos.y <= bbox.y + bbox.h;
+            return pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
+                   pos.y >= bbox.y && pos.y <= bbox.y + bbox.h;
         });
+
         if (state.selectedLayerIndex !== -1) {
             state.isDragging = true;
             canvas.style.cursor = 'move';
         } else {
              canvas.style.cursor = 'default';
         }
+
         updateControlPanel();
         drawMeme();
     }
+
     function handleMove(e) {
         if (!state.isDragging || state.selectedLayerIndex === -1) return;
         e.preventDefault();
         const pos = getEventPos(e);
         const dx = pos.x - state.dragStartX;
         const dy = pos.y - state.dragStartY;
+
         const layer = state.layers[state.selectedLayerIndex];
         layer.x += dx;
         layer.y += dy;
+
         state.dragStartX = pos.x;
         state.dragStartY = pos.y;
+
         drawMeme();
     }
+
     function handleEnd() {
         state.isDragging = false;
         canvas.style.cursor = 'default';
         drawMeme();
     }
+
     function loadTemplateImage(url, ratio) {
         const img = new Image();
+
         img.onload = () => {
             state.currentTemplate = img;
-            let targetW = img.width;
-            let targetH = img.height;
-            if (targetW > MAX_CANVAS_WIDTH) {
-                targetH = targetH * (MAX_CANVAS_WIDTH / targetW);
-                targetW = MAX_CANVAS_WIDTH;
-            }
-            if (targetH > MAX_CANVAS_HEIGHT) {
-                targetW = targetW * (MAX_CANVAS_HEIGHT / targetH);
-                targetH = MAX_CANVAS_HEIGHT;
-            }
-            canvas.width = targetW;
+            state.isCustomBackground = false;
+
+            // Automatically set canvas size to the template ratio based on current DEFAULT_WIDTH
+            let targetW = canvas.width;
+            let targetH = canvas.width / ratio;
+
             canvas.height = targetH;
+            document.getElementById('canvasHeightInput').value = Math.round(targetH);
+
             resizeCanvases();
             drawMeme();
         };
@@ -570,26 +709,43 @@
             state.currentTemplate = null;
             state.isCustomBackground = false;
             console.error("Could not load template image:", url);
-            canvas.width = 600;
-            canvas.height = 600;
             resizeCanvases();
             drawMeme();
         }
         img.src = url;
     }
-    function loadCustomTemplateImage(url) {
+    
+    function loadCustomTemplateImage(url, useCurrentCanvasSize = false) {
         state.isCustomBackground = true;
         renderTemplateSelector();
+
         const img = new Image();
+
         img.onload = () => {
             state.currentTemplate = img;
-            let targetW = img.width;
-            let targetH = img.height;
-            const scaleFactor = Math.min(MAX_CANVAS_WIDTH / img.width, MAX_CANVAS_HEIGHT / img.height);
-            targetW = img.width * scaleFactor;
-            targetH = img.height * scaleFactor;
-            canvas.width = targetW;
-            canvas.height = targetH;
+
+            // Option 1: Scale background image to match current canvas size
+            if (useCurrentCanvasSize) {
+                // Canvas dimensions remain as set by the user/template
+            } else {
+                // Option 2 (default for uploaded backgrounds): Match canvas size to image ratio
+                const ratio = img.width / img.height;
+                let targetW = canvas.width;
+                let targetH = targetW / ratio;
+                
+                // If the new height is too tall, rescale the width
+                const MAX_HEIGHT_CAP = 1200; 
+                if (targetH > MAX_HEIGHT_CAP) {
+                     targetH = MAX_HEIGHT_CAP;
+                     targetW = targetH * ratio;
+                }
+                
+                canvas.width = targetW;
+                canvas.height = targetH;
+                document.getElementById('canvasWidthInput').value = Math.round(targetW);
+                document.getElementById('canvasHeightInput').value = Math.round(targetH);
+            }
+            
             resizeCanvases();
             drawMeme();
         };
@@ -597,16 +753,16 @@
             state.currentTemplate = null;
             state.isCustomBackground = false;
             console.error("Could not load custom image.");
-            canvas.width = 600;
-            canvas.height = 600;
             resizeCanvases();
             drawMeme();
         }
         img.src = url;
     }
+
     function handleImageUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = (e) => {
             const imageUrl = e.target.result;
@@ -618,15 +774,18 @@
         };
         reader.readAsDataURL(file);
     }
+
     function selectTemplate(id) {
         state.selectedTemplateId = id;
         state.isCustomBackground = false;
         const selectedTemplate = templates.find(t => t.id === id);
+
         if (selectedTemplate) {
             renderTemplateSelector();
             loadTemplateImage(selectedTemplate.url, selectedTemplate.ratio);
         }
     }
+
     function addPresetImageLayer(url, id) {
         if (state.stickerImages[id]) {
             createImageLayerObject(url, state.stickerImages[id]);
@@ -644,6 +803,7 @@
             img.src = url;
         }
     }
+
     function addImageLayer(url, name) {
         const img = new Image();
         img.onload = () => {
@@ -655,6 +815,7 @@
         }
         img.src = url;
     }
+
     function createImageLayerObject(url, imgObject, name = '') {
         const newLayer = {
             type: 'image', id: Date.now(), itemUrl: url, name: name,
@@ -663,14 +824,22 @@
             originalW: imgObject.width, originalH: imgObject.height,
             bbox: { x: 0, y: 0, w: 0, h: 0 }
         };
-        if (newLayer.originalW > canvas.width * 0.8 || newLayer.originalH > canvas.height * 0.8) {
-            newLayer.scale = Math.min((canvas.width * 0.8) / newLayer.originalW, (canvas.height * 0.8) / newLayer.originalH) * 0.8;
+        
+        // Initial scaling logic based on current canvas size
+        const MAX_LAYER_DIMENSION_RATIO = 0.8;
+        if (newLayer.originalW > canvas.width * MAX_LAYER_DIMENSION_RATIO || newLayer.originalH > canvas.height * MAX_LAYER_DIMENSION_RATIO) {
+            newLayer.scale = Math.min(
+                (canvas.width * MAX_LAYER_DIMENSION_RATIO) / newLayer.originalW,
+                (canvas.height * MAX_LAYER_DIMENSION_RATIO) / newLayer.originalH
+            ) * MAX_LAYER_DIMENSION_RATIO;
         }
+        
         state.layers.push(newLayer);
         state.selectedLayerIndex = state.layers.length - 1;
         updateControlPanel();
     }
-    function addTextLayer(content = 'New Text', x = MAX_CANVAS_WIDTH / 2, y = MAX_CANVAS_HEIGHT / 2) {
+
+    function addTextLayer(content = 'New Text', x = canvas.width / 2, y = canvas.height / 2) {
         const newLayer = {
             type: 'text', id: Date.now(), content: content.toUpperCase(),
             x: x, y: y, isBold: content.includes('TOP') || content.includes('BOTTOM') ? true : false,
@@ -682,6 +851,7 @@
         updateControlPanel();
         drawMeme();
     }
+
     function deleteSelectedLayer() {
         if (state.selectedLayerIndex < 0) return;
         state.layers.splice(state.selectedLayerIndex, 1);
@@ -689,6 +859,7 @@
         updateControlPanel();
         drawMeme();
     }
+    
     function updateRotation(degrees) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer) {
@@ -697,6 +868,7 @@
             drawMeme();
         }
     }
+
     function toggleFlip(axis) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer) {
@@ -705,6 +877,7 @@
             drawMeme();
         }
     }
+    
     function updateItemScale(scale) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'image') {
@@ -713,6 +886,7 @@
             drawMeme();
         }
     }
+    
     function updateCurrentTextContent() {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
@@ -720,6 +894,7 @@
             drawMeme();
         }
     }
+
     function toggleStyle(style) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
@@ -728,6 +903,7 @@
             drawMeme();
         }
     }
+
     function updateTextColor() {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
@@ -735,6 +911,7 @@
             drawMeme();
         }
     }
+
     function updateFontSize() {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
@@ -742,6 +919,7 @@
             drawMeme();
         }
     }
+    
     function selectFont(id) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
@@ -750,6 +928,7 @@
             drawMeme();
         }
     }
+    
     function drawMeme() {
         if (!state.currentTemplate) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -809,6 +988,7 @@
             ctx.restore();
         });
     }
+    
     function renderTemplateSelector() {
         const container = document.getElementById('templateSelector');
         container.innerHTML = templates.map(t => `
@@ -822,6 +1002,7 @@
             </div>
         `).join('');
     }
+
     function renderStickerSelector() {
         const container = document.getElementById('stickerSelector');
         container.innerHTML = stickers.map(s => `
@@ -835,6 +1016,7 @@
             </div>
         `).join('');
     }
+
     function renderFontSelector() {
         const container = document.getElementById('fontSelector');
         container.innerHTML = fonts.map(f => `
@@ -848,6 +1030,7 @@
             </button>
         `).join('');
     }
+
     function updateControlPanel() {
         const index = state.selectedLayerIndex;
         const layer = state.layers[index];
@@ -888,14 +1071,10 @@
             }
         }
     }
-    // --- End Core Logic Functions ---
 
-    // --- BASEAPP POSTING FUNCTION (UPDATED) ---
 
-    /**
-     * Downloads the final meme image. Can be called silently for sharing workflow.
-     * @param {boolean} showAlert - Whether to show the download alert (default: false for sharing)
-     */
+    // --- BASEAPP POSTING FUNCTION ---
+
     function downloadMeme(showAlert = false) {
         drawMeme(); 
         const dataURL = canvas.toDataURL('image/png');
@@ -912,26 +1091,18 @@
         return dataURL;
     }
 
-    /**
-     * Triggers the BaseApp sharing workflow using Web Share API or fallback.
-     * 1. Downloads the image (as a Blob for the Web Share API).
-     * 2. Tries to use the native Web Share API to share the file/text.
-     * 3. Falls back to clipboard copy + deep-link prompt if Web Share API fails.
-     */
     async function postToBaseApp() {
         if (!BaseAccountSDK.isConnected) {
             alert("BaseApp connection not established. Please try refreshing the app.");
             return;
         }
         
-        // Ensure final state is drawn
         drawMeme(); 
 
         const postText = `baseposting everyday\n[put here your meme]`;
         const fileName = 'BaseMeme_' + Date.now() + '.png';
 
         try {
-            // 1. Convert Canvas to Blob and create a File object for sharing
             const file = await new Promise(resolve => {
                 canvas.toBlob(blob => {
                     resolve(new File([blob], fileName, { type: 'image/png' }));
@@ -944,37 +1115,26 @@
                 files: [file],
             };
 
-            // 2. Try Web Share API (Best for native sharing flow)
             if (navigator.share && navigator.canShare(shareData)) {
                 await navigator.share(shareData);
                 console.log('Shared successfully using Web Share API.');
                 return;
             }
             
-            // 3. FALLBACK: Download and use a Deep Link/Clipboard prompt
             throw new Error("Web Share API not supported or sharing files failed.");
 
         } catch (error) {
             console.warn('Sharing failed, falling back to download/clipboard:', error);
             
-            // Fallback Step 1: Force download the image
             downloadMeme(false); 
             
-            // Fallback Step 2: Copy the text to the clipboard
             navigator.clipboard.writeText(postText).then(() => {
-                // Fallback Step 3: Prompt the user to open BaseApp
                 alert(
                     `Sharing failed or Web Share API not supported on this device/browser.\n\n` + 
                     `✅ Meme image has been downloaded.\n` + 
                     `✅ Post text has been copied to your clipboard.\n\n` +
                     `Please open the Base App and paste the text/attach the image manually.`
                 );
-
-                // *** OPTIONAL DEEP-LINK ATTEMPT ***
-                // To simulate base-it.vercel.app's system, we can try to open a custom scheme.
-                // The actual scheme is unknown, but a common pattern is:
-                // window.location.href = 'baseapp://post?text=' + encodeURIComponent(postText);
-                
             }).catch(err => {
                 alert("Could not copy text to clipboard. Please copy manually and attach the image.");
             });
