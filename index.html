@@ -17,14 +17,11 @@
             --color-white: #FFFFFF;
             --color-black: #000000;
             --color-selection-red: #ff3838; /* Layer Resizing Handle */
+            --color-section-bg: #3c3852; /* Added for section backgrounds */
         }
 
         /* --- LOCAL FONT LOADING --- */
         @font-face { font-family: 'AppGlobalFont'; src: url('./fonts/font4.otf') format('opentype'); font-weight: normal; font-style: normal; }
-        /* Placeholder fonts for demonstration */
-        /* @font-face { font-family: 'LocalFont1'; src: url('./fonts/font1.ttf') format('truetype'); } */
-        /* @font-face { font-family: 'LocalFont2'; src: url('./fonts/font2.ttf') format('truetype'); } */
-        /* @font-face { font-family: 'LocalFont3'; src: url('./fonts/font3.ttf') format('truetype'); } */
 
         /* Base styles */
         body {
@@ -65,7 +62,7 @@
         }
         
         /* Layer Resize Handle (For scaling layers) */
-        #layerResizeHandle {
+        .layer-handle {
             position: absolute;
             width: 20px;
             height: 20px;
@@ -77,6 +74,7 @@
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
             touch-action: none;
             display: none; 
+            transform: translate(-50%, -50%); /* Center the handle on the target point */
         }
         
         /* General Button Styling */
@@ -244,7 +242,7 @@
                 <canvas id="memeCanvas" class="touch-none"></canvas>
                 <canvas id="drawingCanvas" class="touch-none"></canvas>
                 <div id="resizeHandle"></div>
-                <div id="layerResizeHandle" style="display: none;"></div>
+                <div id="layerResizeHandle" class="layer-handle"></div> 
             </div>
         </div>
     </div>
@@ -266,27 +264,27 @@
             
             <div id="main-menu" class="space-y-3">
                 
-                <button onclick="openSecondaryPanel('upload')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                <button onclick="openSecondaryPanel('upload')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center">
                     <span>🖼️ Image & Background</span>
                     <span>></span>
                 </button>
                 
-                <button onclick="openSecondaryPanel('templates')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                <button onclick="openSecondaryPanel('templates')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center">
                     <span>📑 Templates (Sets Canvas Size)</span>
                     <span>></span>
                 </button>
                 
-                <button onclick="openSecondaryPanel('stickers')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                <button onclick="openSecondaryPanel('stickers')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center">
                     <span>✨ Stickers & Items</span>
                     <span>></span>
                 </button>
                 
-                <button onclick="openSecondaryPanel('text')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                <button onclick="openSecondaryPanel('text')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center">
                     <span>🅰️ Text & Fonts</span>
                     <span>></span>
                 </button>
                 
-                <button onclick="openSecondaryPanel('drawing')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                <button onclick="openSecondaryPanel('drawing')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center">
                     <span>✏️ Drawing Tool</span>
                     <span>></span>
                 </button>
@@ -383,7 +381,7 @@
                         ➕ Add New Text Layer
                     </button>
                     
-                    <div id="textControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg]">
+                    <div id="textControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg]" style="display: none;">
                         <h3 class="text-lg font-semibold text-white">Selected Text Layer:</h3>
                         <label for="currentTextContent" class="block text-sm font-medium text-white">Text Content</label>
                         <textarea id="currentTextContent" rows="3" placeholder="Enter text content..." class="w-full p-2 rounded bg-white text-black border border-black focus:ring-[--color-accent] focus:border-[--color-accent] mt-1" oninput="updateCurrentTextContent()"></textarea>
@@ -576,10 +574,11 @@
     });
     // --- End Initialization ---
 
-    // --- APP DRAWER/MODAL FUNCTIONS (Omitted for brevity but functional) ---
+    // --- APP DRAWER/MODAL FUNCTIONS (Minimal implementation) ---
     function toggleMainDrawer() {
         const drawer = document.getElementById('app-drawer-container');
         drawer.classList.toggle('active');
+        // Close secondary panels when main drawer is toggled
         document.querySelectorAll('.secondary-panel').forEach(panel => { panel.classList.remove('active'); });
     }
     function openSecondaryPanel(panelId) {
@@ -591,6 +590,30 @@
         document.querySelectorAll('.secondary-panel').forEach(panel => { panel.classList.remove('active'); });
     }
     
+    // --- UTILITY: Get Canvas Coordinates from Event ---
+    function getEventPos(e) {
+        const rect = canvasContainer.getBoundingClientRect();
+        
+        let clientX, clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        const currentScale = rect.width / canvas.width;
+        
+        const scaledX = clientX - rect.left;
+        const scaledY = clientY - rect.top;
+        
+        return {
+            x: scaledX / currentScale,
+            y: scaledY / currentScale
+        };
+    }
+
     // --- CANVAS RESIZING INTERACTIONS (BLUE HANDLE) ---
 
     function setupCanvasResizingInteractions() {
@@ -604,7 +627,6 @@
     }
 
     function startResizing(e) {
-        // We ensure this only triggers for the BLUE handle
         if (e.target.id === 'resizeHandle') {
             e.preventDefault();
             state.isResizing = true;
@@ -627,7 +649,9 @@
             clientY = e.clientY;
         }
 
-        const currentScale = containerRect.width / canvas.width;
+        // Calculate current CSS scale factor to convert mouse movement (screen pixels) 
+        // back to raw canvas pixels
+        const currentScale = containerRect.width / canvas.width; 
         
         // Calculate new raw pixel dimensions
         const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientX - containerRect.left) / currentScale));
@@ -667,7 +691,6 @@
         if (state.isResizing) {
             state.isResizing = false;
             document.body.style.cursor = 'default';
-            // Final redraw and cleanup
             resizeCanvases();
             drawMeme();
         }
@@ -676,7 +699,6 @@
     // --- LAYER RESIZING INTERACTIONS (RED HANDLE) ---
 
     function setupLayerResizingInteractions() {
-        // We attach listeners directly to the handle element
         layerResizeHandle.addEventListener('mousedown', startLayerResizing);
         window.addEventListener('mousemove', resizeLayer);
         window.addEventListener('mouseup', stopLayerResizing);
@@ -705,21 +727,39 @@
         
         const pos = getEventPos(e); // Mouse position in canvas pixels
         
-        // Calculate vector from the layer center (pivot point) to the mouse position
-        const dx = pos.x - layer.x;
-        const dy = pos.y - layer.y;
-
-        // Calculate new distance from center to mouse position (hypotenuse)
-        const newDistance = Math.sqrt(dx * dx + dy * dy);
+        // --- IMPROVED RESIZE LOGIC ---
         
-        // Calculate the current image's diagonal length (normalized to scale 1)
-        const diagonal = Math.sqrt(layer.originalW * layer.originalW + layer.originalH * layer.originalH);
+        // 1. Calculate vector from the layer center (pivot point) to the mouse position
+        let dx = pos.x - layer.x;
+        let dy = pos.y - layer.y;
 
-        // Determine the target scale. 
-        // Using the diagonal/2 as a reference distance. A factor (e.g., 0.6) makes it feel more responsive.
-        const targetScale = Math.max(MIN_LAYER_SCALE, newDistance / (diagonal / 2 * 0.6));
+        // If rotated, rotate the click vector *back* by the layer's rotation angle
+        if (layer.rotation !== 0) {
+             const angle = -layer.rotation * Math.PI / 180; // Negative angle to un-rotate
+             const cos = Math.cos(angle);
+             const sin = Math.sin(angle);
+             const tempDx = dx;
+             dx = tempDx * cos - dy * sin;
+             dy = tempDx * sin + dy * cos;
+        }
 
-        layer.scale = targetScale;
+        // 2. Calculate new distance based on a single axis (e.g., width) for aspect ratio scaling
+        // We use the greater of the projected distance from center to find the overall scale factor
+        const halfOriginalW = layer.originalW / 2;
+        const halfOriginalH = layer.originalH / 2;
+        
+        let newScale;
+        
+        // Calculate the scale factor needed for the object's width to reach the mouse's projected X position
+        // and the scale factor for the height to reach the mouse's projected Y position.
+        // We use the largest factor to maintain aspect ratio and ensure the cursor is "on" the corner.
+        const scaleX = Math.abs(dx / halfOriginalW);
+        const scaleY = Math.abs(dy / halfOriginalH);
+
+        newScale = Math.max(scaleX, scaleY);
+        
+        // Ensure scale is within bounds
+        layer.scale = Math.max(MIN_LAYER_SCALE, newScale);
         
         // Update slider and redraw
         document.getElementById('scaleSlider').value = layer.scale;
@@ -775,59 +815,33 @@
         const handle = document.getElementById('layerResizeHandle');
 
         if (layer && layer.type === 'image') {
-            const bbox = layer.bbox;
+            const renderW = layer.imageObject.width * layer.scale * (layer.flipX ? -1 : 1);
+            const renderH = layer.imageObject.height * layer.scale * (layer.flipY ? -1 : 1);
             
-            // Position the handle at the bottom-right corner of the bounding box
-            // Note: This needs to use the BBOX calculated *after* rotations/flips,
-            // but for simplicity, we use the raw transformed layer bbox coordinates here.
-            
-            // Determine the farthest corner from the center (layer.x, layer.y)
-            const corners = [
-                {x: bbox.x, y: bbox.y}, 
-                {x: bbox.x + bbox.w, y: bbox.y},
-                {x: bbox.x, y: bbox.y + bbox.h},
-                {x: bbox.x + bbox.w, y: bbox.y + bbox.h}
-            ];
-            
-            // For rotated elements, BBOX is larger than the actual image area.
-            // For a visual resize handle, we place it relative to the non-rotated image's corner (if no rotation).
-            
-            // Let's use the simple, non-rotated corner based on center and rendered size
-            const renderW = layer.imageObject.width * layer.scale;
-            const renderH = layer.imageObject.height * layer.scale;
-            
-            // Get the position of the bottom-right corner relative to the canvas origin (0,0)
-            let handleX = layer.x + (layer.flipX ? renderW / 2 : renderW / 2); // Simplified
-            let handleY = layer.y + (layer.flipY ? renderH / 2 : renderH / 2); // Simplified
-            
-            // For rotation, we need the transformed corner point. 
-            // For a truly corner-based drag, the logic gets complex (need to transform the corner point).
-            // A simpler, more reliable approach is to place the handle at a fixed offset from the layer center (pivot)
-
-            const PIVOT_OFFSET = 0.5; // Offset from center to edge (0.5 means edge)
-
-            // Get the bottom-right corner point of the UN-rotated, scaled image
-            let cornerX = layer.x + (layer.flipX ? -renderW / 2 : renderW / 2);
-            let cornerY = layer.y + (layer.flipY ? -renderH / 2 : renderH / 2);
+            // Get the target point (bottom-right corner of the UN-rotated, scaled image)
+            let cornerX = layer.x + renderW / 2;
+            let cornerY = layer.y + renderH / 2;
             
             // Rotate the corner point (cornerX, cornerY) around the center (layer.x, layer.y)
             let finalX = cornerX;
             let finalY = cornerY;
+            
             if (layer.rotation !== 0) {
                  const angle = layer.rotation * Math.PI / 180;
                  const cos = Math.cos(angle);
                  const sin = Math.sin(angle);
+                 
                  const tx = cornerX - layer.x;
                  const ty = cornerY - layer.y;
+                 
                  finalX = layer.x + (tx * cos - ty * sin);
                  finalY = layer.y + (tx * sin + ty * cos);
             }
 
-
             // Apply position to the handle element (relative to canvas-container)
-            // Use the calculated rotated corner, subtracting half the handle size (10px)
-            handle.style.left = `${finalX - 10}px`; 
-            handle.style.top = `${finalY - 10}px`; 
+            // The CSS 'transform: translate(-50%, -50%)' centers the handle on finalX/finalY
+            handle.style.left = `${finalX}px`; 
+            handle.style.top = `${finalY}px`; 
             handle.style.display = 'block';
         } else {
             handle.style.display = 'none';
@@ -861,28 +875,46 @@
         }
     }
     
-    function getEventPos(e) {
-        const rect = canvasContainer.getBoundingClientRect();
+    // --- DRAWING INTERACTIONS ---
+    function setupDrawingInteractions() {
+        drawingCanvas.addEventListener('mousedown', startDrawing);
+        drawingCanvas.addEventListener('mousemove', draw);
+        drawingCanvas.addEventListener('mouseup', stopDrawing);
+        drawingCanvas.addEventListener('mouseout', stopDrawing);
         
-        let clientX, clientY;
-        if (e.touches && e.touches.length > 0) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-
-        const currentScale = rect.width / canvas.width;
-        
-        const scaledX = clientX - rect.left;
-        const scaledY = clientY - rect.top;
-        
-        return {
-            x: scaledX / currentScale,
-            y: scaledY / currentScale
-        };
+        drawingCanvas.addEventListener('touchstart', startDrawing);
+        drawingCanvas.addEventListener('touchmove', draw);
+        drawingCanvas.addEventListener('touchend', stopDrawing);
     }
+    
+    function startDrawing(e) {
+        if (!state.drawingMode) return;
+        e.preventDefault();
+        state.isDrawing = true;
+        const pos = getEventPos(e);
+        state.lastX = pos.x;
+        state.lastY = pos.y;
+    }
+    
+    function draw(e) {
+        if (!state.isDrawing) return;
+        e.preventDefault();
+        
+        const pos = getEventPos(e);
+        
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(state.lastX, state.lastY);
+        drawingCtx.lineTo(pos.x, pos.y);
+        drawingCtx.stroke();
+        
+        state.lastX = pos.x;
+        state.lastY = pos.y;
+    }
+
+    function stopDrawing() {
+        state.isDrawing = false;
+    }
+
 
     // --- MAIN CANVAS INTERACTION (DRAGGING & SELECTION) ---
     function setupCanvasInteractions() {
@@ -900,11 +932,6 @@
         // Prevent layer drag if already resizing canvas or layer
         if (state.isResizing || state.isLayerResizing || state.drawingMode) return;
         
-        // IMPORTANT: Prevent canvas drag/selection if the user explicitly clicked on one of the handles
-        if (e.target.id === 'resizeHandle' || e.target.id === 'layerResizeHandle') {
-             return; 
-        }
-
         e.preventDefault();
         const pos = getEventPos(e);
         state.dragStartX = pos.x;
@@ -915,7 +942,7 @@
         for (let i = state.layers.length - 1; i >= 0; i--) {
             const layer = state.layers[i];
             const bbox = layer.bbox;
-            // Simple AABB check against the layer's stored bounding box
+            // Simple AABB check against the layer's stored axis-aligned bounding box (AABB)
             if (pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
                 pos.y >= bbox.y && pos.y <= bbox.y + bbox.h) {
                 selectedIndex = i;
@@ -1079,11 +1106,13 @@
             ctx.save();
             ctx.translate(layer.x, layer.y);
             ctx.rotate(layer.rotation * Math.PI / 180);
+            
             const scaleX = layer.flipX ? -1 : 1;
             const scaleY = layer.flipY ? -1 : 1;
             ctx.scale(scaleX, scaleY);
-            let bboxWidth = 0; 
-            let bboxHeight = 0; 
+            
+            let drawWidth = 0; 
+            let drawHeight = 0; 
             
             if (layer.type === 'text') {
                 const fontConfig = fonts.find(f => f.id === layer.fontId);
@@ -1104,49 +1133,74 @@
                     ctx.fillText(line, 0, yOffset);
                     maxLineWidth = Math.max(maxLineWidth, ctx.measureText(line).width);
                 });
-                bboxWidth = maxLineWidth + ctx.lineWidth * 2;
-                bboxHeight = lines.length * lineSpacing + ctx.lineWidth * 2;
+                drawWidth = maxLineWidth + ctx.lineWidth * 2;
+                drawHeight = lines.length * lineSpacing + ctx.lineWidth * 2;
                 
-                // Draw selection box
+                // Draw selection box (unrotated rectangle)
                 if (index === state.selectedLayerIndex && !state.isDragging && !state.isLayerResizing) {
                     ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(-bboxWidth / 2 - 2, -bboxHeight / 2 - 2, bboxWidth + 4, bboxHeight + 4);
+                    ctx.lineWidth = 4 / Math.min(Math.abs(scaleX), Math.abs(scaleY)); // Compensate for local scale
+                    ctx.strokeRect(-drawWidth / 2 - 2, -drawHeight / 2 - 2, drawWidth + 4, drawHeight + 4);
                 }
             } else if (layer.type === 'image') {
                 const img = layer.imageObject;
                 const renderW = img.width * layer.scale;
                 const renderH = img.height * layer.scale;
                 ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
-                bboxWidth = renderW;
-                bboxHeight = renderH;
+                drawWidth = renderW;
+                drawHeight = renderH;
                 
-                // Draw selection box
+                // Draw selection box (unrotated rectangle)
                 if (index === state.selectedLayerIndex && !state.isDragging && !state.isLayerResizing) {
                     ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(-bboxWidth / 2 - 2, -bboxHeight / 2 - 2, bboxWidth + 4, bboxHeight + 4);
+                    ctx.lineWidth = 4 / Math.min(Math.abs(scaleX), Math.abs(scaleY)); // Compensate for local scale
+                    ctx.strokeRect(-drawWidth / 2 - 2, -drawHeight / 2 - 2, drawWidth + 4, drawHeight + 4);
                 }
             }
             
             ctx.restore();
             
-            // Recalculate Bounding Box (Axis-Aligned for simplicity in hit detection)
-            // This is complex for rotation, but sufficient for basic drag hit-testing on the center.
-            // Using the unrotated, scaled dimensions centered at the layer's position.
-            layer.bbox = {
-                x: layer.x - Math.abs(bboxWidth * scaleX) / 2,
-                y: layer.y - Math.abs(bboxHeight * scaleY) / 2,
-                w: Math.abs(bboxWidth * scaleX),
-                h: Math.abs(bboxHeight * scaleY)
-            };
+            // Recalculate Bounding Box (Axis-Aligned Bounding Box, handles rotation)
+            // This calculates the bounding box of the rotated shape for accurate click detection.
+            if (layer.type === 'text' || layer.type === 'image') {
+                const w = drawWidth;
+                const h = drawHeight;
+                const angle = layer.rotation * Math.PI / 180;
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+                
+                // Half-dimensions
+                const hw = w / 2;
+                const hh = h / 2;
+                
+                // Four corners relative to center (0,0)
+                const corners = [
+                    { x: -hw * cos - hh * sin, y: -hw * sin + hh * cos },
+                    { x: hw * cos - hh * sin, y: hw * sin + hh * cos },
+                    { x: -hw * cos + hh * sin, y: -hw * sin - hh * cos },
+                    { x: hw * cos + hh * sin, y: hw * sin - hh * cos }
+                ];
+                
+                // Find min/max X/Y values
+                const minX = Math.min(...corners.map(c => c.x)) + layer.x;
+                const maxX = Math.max(...corners.map(c => c.x)) + layer.x;
+                const minY = Math.min(...corners.map(c => c.y)) + layer.y;
+                const maxY = Math.max(...corners.map(c => c.y)) + layer.y;
+
+                layer.bbox = {
+                    x: minX,
+                    y: minY,
+                    w: maxX - minX,
+                    h: maxY - minY
+                };
+            }
         });
         
         // 3. Update Visual Handles
         updateLayerResizeHandlePosition(); 
     }
     
-    // --- Control Panel and Input Handlers (Simplified) ---
+    // --- Control Panel and Input Handlers (Implemented based on provided HTML) ---
 
     function updateItemScale(scale) {
         const layer = state.layers[state.selectedLayerIndex];
@@ -1161,7 +1215,6 @@
         const index = state.selectedLayerIndex;
         const layer = state.layers[index];
         
-        // ... (Other control visibility toggles for text/image/common)
         const commonControls = document.getElementById('commonControls');
         const transformationControls = document.getElementById('transformationControls');
         const layerTypeDisplay = document.getElementById('currentLayerTypeDisplay');
@@ -1173,6 +1226,7 @@
         layerTypeDisplay.textContent = 'None';
         textControls.style.display = 'none';
         imageControls.style.display = 'none';
+        layerResizeHandle.style.display = 'none';
         
         if (index >= 0 && layer) {
             commonControls.classList.remove('hidden');
@@ -1181,11 +1235,20 @@
             
             document.getElementById('rotationSlider').value = layer.rotation;
             document.getElementById('rotationValue').textContent = `${layer.rotation}°`;
+            document.getElementById('flipXBtn').classList.toggle('selected-item', layer.flipX);
+            document.getElementById('flipYBtn').classList.toggle('selected-item', layer.flipY);
             
             if (layer.type === 'text') {
-                 // ... (Text controls updates)
+                 // Text-specific controls update
+                textControls.style.display = 'block';
+                document.getElementById('currentTextContent').value = layer.content;
+                document.getElementById('textColorInput').value = layer.color;
+                document.getElementById('fontSizeSelect').value = layer.fontSize.toString();
+                document.getElementById('boldBtn').classList.toggle('selected-item', layer.isBold);
+                document.getElementById('italicBtn').classList.toggle('selected-item', layer.isItalic);
             } 
             else if (layer.type === 'image') {
+                // Image-specific controls update
                 imageControls.style.display = 'block';
                 document.getElementById('scaleSlider').value = layer.scale;
                 document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
@@ -1194,7 +1257,61 @@
         updateLayerResizeHandlePosition(); // Crucial: Update handle display/position
     }
 
-    // ... (other functions like addTextLayer, updateRotation, toggleFlip, handleImageUpload, etc. are omitted for brevity)
+    // --- Other Layer/Control Functions ---
+    
+    function renderTemplateSelector() {
+        const container = document.getElementById('templateSelector');
+        container.innerHTML = ''; // Clear previous content
+
+        // Add "Custom Background" button
+        const customBtn = document.createElement('button');
+        customBtn.textContent = state.isCustomBackground ? '✅ Custom BG' : 'Custom BG';
+        customBtn.className = 'control-button p-3 rounded-lg font-bold w-full text-center';
+        customBtn.onclick = () => {
+            alert("Upload your custom background via the 'Image & Background' panel.");
+        };
+        container.appendChild(customBtn);
+        
+        templates.forEach(template => {
+            const button = document.createElement('button');
+            button.textContent = template.defaultW + 'x' + template.defaultH;
+            button.className = `control-button p-3 rounded-lg font-bold w-full text-center ${state.selectedTemplateId === template.id && !state.isCustomBackground ? 'selected-item' : ''}`;
+            button.onclick = () => selectTemplate(template.id);
+            container.appendChild(button);
+        });
+    }
+
+    function renderStickerSelector() {
+        const container = document.getElementById('stickerSelector');
+        container.innerHTML = '';
+        stickers.forEach(sticker => {
+            const button = document.createElement('button');
+            button.className = 'control-button p-2 rounded-lg';
+            button.onclick = () => addPresetImageLayer(sticker.url, sticker.id);
+            
+            const img = document.createElement('img');
+            img.src = sticker.url;
+            img.alt = sticker.name;
+            img.className = 'w-full h-auto max-h-20 object-contain';
+
+            button.appendChild(img);
+            container.appendChild(button);
+        });
+    }
+    
+    function renderFontSelector() {
+        const container = document.getElementById('fontSelector');
+        container.innerHTML = '';
+        fonts.forEach(font => {
+            const button = document.createElement('button');
+            button.textContent = font.name;
+            button.className = `control-button px-3 py-1 rounded text-sm ${state.layers[state.selectedLayerIndex]?.fontId === font.id ? 'selected-item' : ''}`;
+            button.style.fontFamily = `'${font.family}', ${font.fallback}`;
+            button.onclick = () => updateFontFamily(font.id);
+            container.appendChild(button);
+        });
+    }
+
     function addTextLayer(content = 'New Text', x = canvas.width / 2, y = canvas.height / 2) {
         const newLayer = {
             type: 'text', id: Date.now(), content: content.toUpperCase(),
@@ -1208,6 +1325,48 @@
         drawMeme();
     }
     
+    function updateCurrentTextContent() {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer.content = document.getElementById('currentTextContent').value;
+            drawMeme();
+        }
+    }
+    
+    function updateFontFamily(fontId) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer.fontId = fontId;
+            renderFontSelector(); // Redraw selectors to highlight the selected one
+            drawMeme();
+        }
+    }
+    
+    function updateFontSize() {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer.fontSize = parseInt(document.getElementById('fontSizeSelect').value);
+            drawMeme();
+        }
+    }
+
+    function updateTextColor() {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer.color = document.getElementById('textColorInput').value;
+            drawMeme();
+        }
+    }
+    
+    function toggleStyle(style) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer[style] = !layer[style];
+            document.getElementById(`${style === 'isBold' ? 'bold' : 'italic'}Btn`).classList.toggle('selected-item', layer[style]);
+            drawMeme();
+        }
+    }
+
     function addPresetImageLayer(url, id) {
         if (state.stickerImages[id]) {
             createImageLayerObject(url, state.stickerImages[id]);
@@ -1283,7 +1442,7 @@
     function updateDrawingBrush(brush) { state.drawingBrush = brush; updateDrawingContext(); }
     function clearDrawingLayer() { drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); }
 
-    // --- BASEAPP POSTING/DOWNLOAD FUNCTION (Omitted for brevity) ---
+    // --- BASEAPP POSTING/DOWNLOAD FUNCTION ---
     function downloadMeme(showAlert = false) {
         drawMeme(); 
         const dataURL = canvas.toDataURL('image/png');
@@ -1305,8 +1464,8 @@
             alert("BaseApp connection not established. Please try refreshing the app.");
             return;
         }
-        // ... (sharing logic omitted for brevity)
-        alert("Simulating post to BaseApp. Image has been downloaded.");
+        // In a real app, you would send the dataURL to the BaseApp backend/smart contract.
+        alert(`Simulating post to BaseApp as ${BaseAccountSDK.userInfo.username}. Image has been downloaded.`);
         downloadMeme(false);
     }
 </script>
