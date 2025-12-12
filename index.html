@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BaseMeme Editor - Create & Post Memes on Base</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include ethers.js for wallet connection -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="application/javascript"></script>
+    <style>
+        :root {
+            --color-dark-bg: #302c44;
+            --color-accent: #547cf4;
+            --color-primary-action: #4362e5;
+            --color-general-button: #a09bc5;
+            --color-dark-accent: #0e1f72;
+            --color-section-bg: #6f66a8;
+            --color-white: #FFFFFF;
+            --color-black: #000000;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+        }
+
+        /* --- LOCAL FONT LOADING --- */
+        @font-face {
+            font-family: 'AppGlobalFont';
+            src: url('./fonts/font4.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'LocalFont1';
+            src: url('./fonts/font1.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'LocalFont2';
+            src: url('./fonts/font2.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'LocalFont3';
+            src: url('./fonts/font3.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        /* Base styles */
+        body {
+            font-family: 'AppGlobalFont', sans-serif;
+            background-color: var(--color-dark-bg);
+        }
+
+        /* General Button Styling */
+        .control-button {
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            color: var(--color-black);
+            background-color: var(--color-general-button);
+        }
+        .control-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            background-color: #8c90b6;
+        }
+        .control-button:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+        .primary-action-button {
+            background-color: var(--color-primary-action);
+            color: var(--color-white);
+        }
+        .primary-action-button:hover {
+            background-color: var(--color-dark-accent);
+        }
+        .selected-item {
+            border-width: 4px;
+            border-color: var(--color-accent) !important;
+        }
+        .success-button {
+            background-color: var(--color-success);
+            color: var(--color-white);
+        }
+        .success-button:hover {
+            background-color: #059669;
+        }
+
+        /* Scrollbar styles */
+        #controls::-webkit-scrollbar { width: 8px; }
+        #controls::-webkit-scrollbar-thumb { background: var(--color-accent); border-radius: 4px; }
+        #controls::-webkit-scrollbar-track { background: var(--color-dark-bg); }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Canvas z-index and interaction styles */
+        #drawingCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            cursor: default;
+            pointer-events: none;
+        }
+        #drawingCanvas.active-drawing {
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        /* Wallet connection indicator */
+        .wallet-connected {
+            background-color: var(--color-success);
+            color: white;
+        }
+        .wallet-disconnected {
+            background-color: var(--color-error);
+            color: white;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast-success {
+            background-color: var(--color-success);
+        }
+        .toast-error {
+            background-color: var(--color-error);
+        }
+        .toast-info {
+            background-color: var(--color-accent);
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--color-accent);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ---------------------------------------------------- */
+        /* --- FIX: STICKY MENU AND STABLE CANVAS ON DESKTOP --- */
+        /* ---------------------------------------------------- */
+        @media (min-width: 1024px) {
+            /* 1. Make the body take full height of the viewport on desktop */
+            body {
+                height: 100vh;
+                overflow: hidden; /* Prevent main page scroll on desktop */
+            }
+
+            /* 2. Fix the control panel to the left, enabling internal scrolling */
+            #controls {
+                position: fixed !important; /* Override Tailwind's lg: order */
+                top: 60px; /* Account for wallet header */
+                left: 0;
+                height: calc(100vh - 60px);
+                width: 33.3333%; /* lg:w-1/3 */
+                overflow-y: auto; /* Enable internal scrolling */
+                z-index: 20; /* Ensure it stays on top */
+            }
+
+            /* 3. Push the canvas content over by the width of the fixed sidebar */
+            #preview-wrapper {
+                margin-left: 33.3333%; /* 1/3 width offset */
+                width: 66.6667%; /* lg:w-2/3 */
+                min-height: 100vh; /* Takes remaining height */
+                overflow-y: auto; /* In case the canvas content exceeds viewport height */
+
+                /* Ensure the preview area is the primary scrollable content */
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+        }
+        /* ---------------------------------------------------- */
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-spinner"></div>
+    <span class="ml-3 text-white font-bold" id="loadingText">Processing...</span>
+</div>
+
+<!-- Top Bar with Wallet Connection -->
+<div class="w-full bg-[--color-dark-accent] p-4 flex justify-between items-center order-0 z-30">
+    <div class="flex items-center space-x-4">
+        <h1 class="text-2xl font-bold text-white">BaseMeme Editor</h1>
+        <div id="networkIndicator" class="text-sm px-3 py-1 rounded-full bg-[--color-accent] text-white hidden">
+            Base Network
+        </div>
+    </div>
+
+    <div class="flex items-center space-x-4">
+        <div id="walletInfo" class="hidden">
+            <span class="text-white text-sm mr-3">
+                Connected: <span id="walletAddress" class="font-mono">0x...</span>
+            </span>
+            <button onclick="disconnectWallet()" class="control-button px-3 py-1 text-sm rounded bg-red-500 text-white hover:bg-red-600">
+                Disconnect
+            </button>
+        </div>
+        <button id="connectWalletBtn" onclick="connectWallet()" class="control-button px-4 py-2 rounded-lg font-bold bg-[--color-success] text-white hover:bg-green-600">
+            🔗 Connect Wallet
+        </button>
+    </div>
+</div>
+
+<div id="controls" class="w-full lg:w-1/3 bg-[--color-dark-bg] text-white p-4 lg:p-6 flex flex-col space-y-4 lg:space-y-6 order-2 lg:order-1 z-10">
+    <h1 class="text-3xl font-extrabold text-[--color-accent] border-b border-[--color-accent] pb-3 mb-4">BaseMeme Layer Editor</h1>
+
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Upload Images</h2>
+        <div class="flex flex-col space-y-2">
+            <input type="file" id="imageUploadInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+
+            <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'background';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
+                ⬆️ Upload & Set as Background
+            </button>
+
+            <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'layer';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
+                🖼️ Upload & Add as Layer (Movable/Rotatable)
+            </button>
+            <p class="text-sm text-gray-200">The layered image can be selected and edited below.</p>
+        </div>
+    </section>
+
+    <hr class="border-[--color-accent]">
+
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Template Background (Folder: /memes)</h2>
+        <div id="templateSelector" class="grid grid-cols-3 gap-2">
+            <!-- Templates will be rendered here -->
+        </div>
+    </section>
+
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Add Sticker Item (Folder: /base)</h2>
+        <div id="stickerSelector" class="grid grid-cols-3 gap-2">
+            <!-- Stickers will be rendered here -->
+        </div>
+    </section>
+
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Drawing Tool (Paint)</h2>
+        <div id="drawingControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
+
+            <button id="drawingModeToggle" onclick="toggleDrawingMode()" class="control-button w-full py-2 font-bold rounded-lg bg-[--color-primary-action] text-white">
+                🔴 Toggle Drawing Mode (OFF)
+            </button>
+
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
+                    <label for="drawColorInput" class="text-sm text-black cursor-pointer">Color:</label>
+                    <input type="color" id="drawColorInput" value="#547cf4" class="w-8 h-8 rounded cursor-pointer" oninput="updateDrawingColor(event.target.value)">
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <label for="drawSizeSelect" class="text-sm text-white">Size:</label>
+                    <select id="drawSizeSelect" onchange="updateDrawingSize(event.target.value)" class="control-button p-2 rounded text-black">
+                        <option value="5">Small</option>
+                        <option value="15" selected>Medium</option>
+                        <option value="30">Large</option>
+                        <option value="50">Huge</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="drawBrushSelect" class="text-sm text-white block mb-1">Brush Style:</label>
+                <select id="drawBrushSelect" onchange="updateDrawingBrush(event.target.value)" class="control-button w-full p-2 rounded text-black">
+                    <option value="line" selected>Line (Default)</option>
+                    <option value="star">⭐ Star</option>
+                    <option value="sparks">✨ Sparks</option>
+                </select>
+            </div>
+
+            <button onclick="clearDrawingLayer()" class="control-button w-full py-2 rounded text-black font-bold">
+                🧹 Clear Drawing Layer
+            </button>
+        </div>
+    </section>
+
+    <hr class="border-[--color-accent]">
+
+    <section class="flex-grow pt-4">
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
+
+        <p class="text-sm text-gray-200 mb-2">Tap/click layer on image to edit. **(Must turn OFF Drawing Mode)**</p>
+
+        <div id="contextualControls" class="space-y-4">
+
+            <div id="textControls" class="space-y-4 hidden">
+                <label for="currentTextContent" class="block text-sm font-medium text-white">Text Content</label>
+                <textarea id="currentTextContent" rows="3" placeholder="Enter text content..." class="w-full p-2 rounded bg-white text-black border border-black focus:ring-[--color-accent] focus:border-[--color-accent] mt-1" oninput="updateCurrentTextContent()"></textarea>
+
+                <div>
+                    <span class="block text-sm font-medium text-white mb-1">Font Family (Folder: /fonts):</span>
+                    <div id="fontSelector" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 mb-4">
+                    <button id="boldBtn" onclick="toggleStyle('isBold')" class="control-button px-3 py-2 rounded">
+                        <span class="font-black">B</span>
+                    </button>
+                    <button id="italicBtn" onclick="toggleStyle('isItalic')" class="control-button px-3 py-2 rounded">
+                        <span class="italic">I</span>
+                    </button>
+
+                    <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
+                        <label for="textColorInput" class="text-xs text-black cursor-pointer">Color:</label>
+                        <input type="color" id="textColorInput" value="#ffffff" class="w-8 h-8 rounded cursor-pointer" oninput="updateTextColor()">
+                    </div>
+                </div>
+
+                <div>
+                    <span class="block text-sm font-medium text-white mb-1">Font Size:</span>
+                    <select id="fontSizeSelect" onchange="updateFontSize()" class="control-button w-full p-2 rounded text-black">
+                        <option value="40">Size: Small</option>
+                        <option value="60" selected>Size: Medium</option>
+                        <option value="80">Size: Large</option>
+                        <option value="100">Size: Extra Large</option>
+                        <option value="120">Size: Huge</option>
+                    </select>
+                </div>
+
+                <h3 class="text-lg font-semibold text-white border-t border-[--color-accent] pt-3">Transformations</h3>
+            </div>
+
+            <div id="transformationControls" class="space-y-4 hidden">
+                <div>
+                    <label for="rotationSlider" class="block text-sm font-medium text-white">
+                        Rotation: <span id="rotationValue">0°</span>
+                    </label>
+                    <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateRotation(event.target.value)">
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <button id="flipXBtn" onclick="toggleFlip('flipX')" class="control-button px-3 py-2 rounded">
+                        ↔️ Flip X (Mirror)
+                    </button>
+                    <button id="flipYBtn" onclick="toggleFlip('flipY')" class="control-button px-3 py-2 rounded">
+                        ↕️ Flip Y
+                    </button>
+                </div>
+            </div>
+
+            <div id="imageControls" class="space-y-4 hidden">
+                <label for="scaleSlider" class="block text-sm font-medium text-white">
+                    Item Scale: <span id="scaleValue">100%</span>
+                </label>
+                <input type="range" id="scaleSlider" min="0.2" max="3" step="0.1" value="1.0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateItemScale(event.target.value)">
+                <h3 class="text-lg font-semibold text-white border-t border-[--color-accent] pt-3">Transformations</h3>
+            </div>
+
+            <div id="commonControls" class="hidden">
+                <button onclick="addTextLayer('NEW TEXT')" class="control-button w-full py-2 bg-[--color-accent] hover:bg-opacity-90 text-black font-bold rounded-lg mb-4">
+                    ➕ Add New Text Layer
+                </button>
+                <button onclick="deleteSelectedLayer()" class="control-button w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-bold">
+                    🗑️ Delete Selected Layer
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- BaseApp Post Section -->
+    <section class="mt-6 p-4 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">6. Post to BaseApp</h2>
+
+        <div class="space-y-3">
+            <div>
+                <label for="postTitle" class="block text-sm font-medium text-white mb-1">Post Title</label>
+                <input type="text" id="postTitle" placeholder="Enter meme title..." class="w-full p-2 rounded bg-white text-black border border-black">
+            </div>
+
+            <div>
+                <label for="postDescription" class="block text-sm font-medium text-white mb-1">Description</label>
+                <textarea id="postDescription" rows="3" placeholder="Describe your meme..." class="w-full p-2 rounded bg-white text-black border border-black"></textarea>
+            </div>
+
+            <div>
+                <label for="postTags" class="block text-sm font-medium text-white mb-1">Tags (comma separated)</label>
+                <input type="text" id="postTags" placeholder="funny, meme, crypto" class="w-full p-2 rounded bg-white text-black border border-black">
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="previewPost()" class="control-button flex-1 py-2 rounded bg-[--color-accent] text-white font-bold">
+                    👁️ Preview Post
+                </button>
+                <button onclick="createPost()" id="createPostBtn" class="success-button control-button flex-1 py-2 rounded font-bold" disabled>
+                    🚀 Create Post
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <div class="flex space-x-3 mt-4">
+        <button onclick="downloadMeme()" class="primary-action-button control-button w-full py-3 font-bold rounded-lg shadow-lg">
+            ⬇️ Download BaseMeme
+        </button>
+        <button onclick="shareMeme()" class="success-button control-button w-full py-3 font-bold rounded-lg">
+            📤 Share to Social
+        </button>
+    </div>
+</div>
+
+<div id="preview-wrapper" class="w-full order-1 lg:order-2">
+    <div id="preview" class="w-full lg:w-full flex items-center justify-center p-4 lg:p-8 z-20 relative">
+        <div class="bg-[--color-accent] p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
+            <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-[--color-accent] bg-[--color-accent] shadow-xl touch-none"></canvas>
+            <canvas id="drawingCanvas" class="rounded-lg touch-none"></canvas>
+        </div>
+    </div>
+    <div id="postPreview" class="hidden mt-8 p-6 bg-white rounded-lg shadow-lg max-w-2xl mx-auto">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4">Post Preview</h3>
+        <div id="previewContent"></div>
+        <button onclick="closePreview()" class="mt-4 control-button py-2 px-4 rounded bg-gray-200 text-gray-800">
+            Close Preview
+        </button>
+    </div>
+</div>
+
+<script>
+    // ==================== WALLET & BLOCKCHAIN INTEGRATION ====================
+    let provider = null;
+    let signer = null;
+    let walletAddress = null;
+    let isConnected = false;
+
+    // BaseApp Contract Address (Example - replace with actual)
+    const BASEAPP_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890';
+
+    // BaseApp Contract ABI (Simplified - you'll need the actual ABI)
+    const BASEAPP_ABI = [
+        "function createPost(string memory _title, string memory _description, string memory _imageURI, string[] memory _tags) external returns (uint256)",
+        "event PostCreated(uint256 indexed postId, address indexed creator, string title, string imageURI)"
+    ];
+
+    // Initialize wallet connection
+    async function connectWallet() {
+        try {
+            showLoading("Connecting wallet...");
+
+            // Check if MetaMask is installed
+            if (typeof window.ethereum === 'undefined') {
+                throw new Error('Please install MetaMask or another Web3 wallet');
+            }
+
+            // Request account access
+            const accounts = await window.ethereum.request({
+                method: 'eth_requestAccounts'
+            });
+
+            // Create ethers provider and signer
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+            walletAddress = accounts[0];
+            isConnected = true;
+
+            // Update UI
+            updateWalletUI(true);
+            showToast('Wallet connected successfully!', 'success');
+
+            // Check network (Base Mainnet or Testnet)
+            const network = await provider.getNetwork();
+            const networkName = network.name === 'unknown' ? 'Local Network' : network.name;
+            document.getElementById('networkIndicator').textContent = networkName;
+            document.getElementById('networkIndicator').classList.remove('hidden');
+
+            // Enable create post button
+            document.getElementById('createPostBtn').disabled = false;
+
+            // Listen for account changes
+            window.ethereum.on('accountsChanged', handleAccountsChanged);
+
+            // Listen for network changes
+            window.ethereum.on('chainChanged', handleChainChanged);
+
+        } catch (error) {
+            console.error('Wallet connection error:', error);
+            showToast(`Connection failed: ${error.message}`, 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function disconnectWallet() {
+        walletAddress = null;
+        isConnected = false;
+        provider = null;
+        signer = null;
+
+        updateWalletUI(false);
+        showToast('Wallet disconnected', 'info');
+
+        document.getElementById('createPostBtn').disabled = true;
+        document.getElementById('networkIndicator').classList.add('hidden');
+    }
+
+    function updateWalletUI(connected) {
+        const connectBtn = document.getElementById('connectWalletBtn');
+        const walletInfo = document.getElementById('walletInfo');
+        const walletAddressSpan = document.getElementById('walletAddress');
+
+        if (connected) {
+            connectBtn.classList.add('hidden');
+            walletInfo.classList.remove('hidden');
+
+            // Shorten wallet address for display
+            const shortAddress = `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}`;
+            walletAddressSpan.textContent = shortAddress;
+        } else {
+            connectBtn.classList.remove('hidden');
+            walletInfo.classList.add('hidden');
+        }
+    }
+
+    function handleAccountsChanged(accounts) {
+        if (accounts.length === 0) {
+            disconnectWallet();
+        } else {
+            walletAddress = accounts[0];
+            updateWalletUI(true);
+            showToast('Account changed', 'info');
+        }
+    }
+
+    function handleChainChanged(chainId) {
+        window.location.reload();
+    }
+
+    // ==================== POST TO BASEAPP FUNCTIONALITY ====================
+    async function createPost() {
+        try {
+            if (!isConnected || !walletAddress) {
+                showToast('Please connect your wallet first', 'error');
+                return;
+            }
+
+            showLoading("Creating post on BaseApp...");
+
+            // Generate meme image
+            const imageData = await generateMemeImage();
+
+            // Upload to IPFS or storage (simulated here)
+            const imageURI = await uploadToIPFS(imageData);
+
+            // Get post data
+            const title = document.getElementById('postTitle').value || 'My Base Meme';
+            const description = document.getElementById('postDescription').value || 'Created with BaseMeme Editor';
+            const tags = document.getElementById('postTags').value
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(tag => tag.length > 0);
+
+            // Simulate contract interaction (replace with actual contract call)
+            // const contract = new ethers.Contract(BASEAPP_CONTRACT_ADDRESS, BASEAPP_ABI, signer);
+            // const tx = await contract.createPost(title, description, imageURI, tags);
+            // await tx.wait();
+
+            // Simulated success
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            showToast('Post created successfully on BaseApp!', 'success');
+
+            // Reset form
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postDescription').value = '';
+            document.getElementById('postTags').value = '';
+
+        } catch (error) {
+            console.error('Post creation error:', error);
+            showToast(`Post failed: ${error.message}`, 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function generateMemeImage() {
+        // Save current selection
+        const originalSelection = state.selectedLayerIndex;
+        state.selectedLayerIndex = -1;
+        drawMeme();
+
+        // Create final canvas with drawing layer
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = canvas.width;
+        finalCanvas.height = canvas.height;
+        const finalCtx = finalCanvas.getContext('2d');
+
+        finalCtx.drawImage(canvas, 0, 0);
+        finalCtx.drawImage(drawingCanvas, 0, 0);
+
+        // Restore selection
+        state.selectedLayerIndex = originalSelection;
+        drawMeme();
+
+        return finalCanvas.toDataURL('image/png');
+    }
+
+    async function uploadToIPFS(imageData) {
+        // This is a simulation - in production, use actual IPFS service
+        // Example: Pinata, Web3.Storage, or NFT.Storage
+        showLoading("Uploading to decentralized storage...");
+
+        try {
+            // Simulate upload delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // In production, you would:
+            // 1. Convert dataURL to Blob
+            // 2. Upload to IPFS via API
+            // 3. Return the CID or URI
+
+            const simulatedCID = `bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi`;
+            const ipfsURI = `ipfs://${simulatedCID}`;
+
+            showToast('Image uploaded to IPFS', 'success');
+            return ipfsURI;
+
+        } catch (error) {
+            console.error('IPFS upload error:', error);
+            // Fallback to data URL if IPFS fails
+            return imageData;
+        }
+    }
+
+    function previewPost() {
+        const title = document.getElementById('postTitle').value || 'Untitled Meme';
+        const description = document.getElementById('postDescription').value || 'No description';
+        const tags = document.getElementById('postTags').value || 'meme';
+
+        // Generate meme preview
+        const canvas = document.getElementById('memeCanvas');
+        const memeData = canvas.toDataURL('image/png');
+
+        const previewHTML = `
+            <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-100 p-4">
+                    <h4 class="text-lg font-bold">${title}</h4>
+                    <p class="text-gray-600 text-sm mt-1">${description}</p>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        ${tags.split(',').map(tag =>
+            `<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">${tag.trim()}</span>`
+        ).join('')}
+                    </div>
+                </div>
+                <div class="p-4">
+                    <img src="${memeData}" alt="Meme Preview" class="w-full h-auto rounded">
+                </div>
+                <div class="bg-gray-50 p-3 text-sm text-gray-500">
+                    <div class="flex justify-between">
+                        <span>Posted by: ${walletAddress ? `${walletAddress.substring(0, 6)}...` : 'Not connected'}</span>
+                        <span>${new Date().toLocaleDateString()}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('previewContent').innerHTML = previewHTML;
+        document.getElementById('postPreview').classList.remove('hidden');
+    }
+
+    function closePreview() {
+        document.getElementById('postPreview').classList.add('hidden');
+    }
+
+    function shareMeme() {
+        // Generate meme image
+        const canvas = document.getElementById('memeCanvas');
+        const dataURL = canvas.toDataURL('image/png');
+
+        // Create shareable link
+        const shareText = `Check out my meme created with BaseMeme Editor! #BaseMeme #BaseNetwork`;
+        const shareURL = window.location.href;
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(`${shareText}\n\n${shareURL}`)
+            .then(() => showToast('Link copied to clipboard! Share it on social media.', 'success'))
+            .catch(() => showToast('Failed to copy to clipboard', 'error'));
+    }
+
+    // ==================== UTILITY FUNCTIONS ====================
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+
+        toastContainer.appendChild(toast);
+
+        // Remove toast after 5 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
+
+    function showLoading(text = 'Processing...') {
+        document.getElementById('loadingText').textContent = text;
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+    }
+
+    function hideLoading() {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+
+    // ==================== ORIGINAL EDITOR CODE ====================
+    // --- DATA DEFINITIONS ---
+    const templates = [
+        { id: 't1', name: 'meme1.png', url: './memes/meme1.png', ratio: 4/3 },
+        { id: 't2', name: 'meme2.png', url: './memes/meme2.png', ratio: 16/9 },
+        { id: 't3', name: 'meme3.png', url: './memes/meme3.png', ratio: 3/4 },
+        { id: 't4', name: 'meme4.png', url: './memes/meme4.png', ratio: 1/1 },
+        { id: 't5', name: 'meme5.png', url: './memes/meme5.png', ratio: 9/5 },
+        { id: 't6', name: 'meme6.png', url: './memes/meme6.png', ratio: 1/1 },
+    ];
+
+    const stickers = [
+        { id: 's1', name: 'base1.png', url: './base/base1.png' },
+        { id: 's2', name: 'base2.png', url: './base/base2.png' },
+        { id: 's3', name: 'base3.png', url: './base/base3.png' },
+        { id: 's4', name: 'base4.png', url: './base/base4.png' },
+        { id: 's5', name: 'base5.png', url: './base/base5.png' },
+        { id: 's6', name: 'base6.png', url: './base/base6.png' },
+    ];
+
+    const fonts = [
+        { id: 'f4', name: 'font4.otf (Global)', family: 'AppGlobalFont', fallback: 'sans-serif' },
+        { id: 'f1', name: 'font1.ttf', family: 'LocalFont1', fallback: 'sans-serif' },
+        { id: 'f2', name: 'font2.ttf', family: 'LocalFont2', fallback: 'serif' },
+        { id: 'f3', name: 'font3.ttf', family: 'LocalFont3', fallback: 'cursive' }
+    ];
+
+    // --- STATE MANAGEMENT ---
+    const canvas = document.getElementById('memeCanvas');
+    const ctx = canvas.getContext('2d');
+    const drawingCanvas = document.getElementById('drawingCanvas');
+    const drawingCtx = drawingCanvas.getContext('2d');
+    const MAX_CANVAS_WIDTH = 800;
+    const MAX_CANVAS_HEIGHT = 800;
+
+    let state = {
+        selectedTemplateId: templates[0].id,
+        currentTemplate: null,
+        layers: [],
+        selectedLayerIndex: -1,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        stickerImages: {},
+        isDrawing: false,
+        drawingMode: false,
+        drawingColor: '#547cf4',
+        drawingSize: 15,
+        drawingBrush: 'line',
+        lastX: 0,
+        lastY: 0,
+        isCustomBackground: false,
+        uploadMode: 'background',
+        // New properties for BaseApp
+        postData: {
+            title: '',
+            description: '',
+            tags: [],
+            imageURI: ''
+        }
+    };
+
+    let initialTemplate = templates.find(t => t.id === state.selectedTemplateId);
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderTemplateSelector();
+        renderStickerSelector();
+        renderFontSelector();
+        loadTemplateImage(initialTemplate.url, initialTemplate.ratio);
+
+        // Initial text layers
+        addTextLayer('TOP TEXT', MAX_CANVAS_WIDTH / 2, 0.1 * MAX_CANVAS_HEIGHT);
+        addTextLayer('BOTTOM TEXT', MAX_CANVAS_WIDTH / 2, 0.9 * MAX_CANVAS_HEIGHT);
+
+        // Set initial drawing controls
+        document.getElementById('drawColorInput').value = state.drawingColor;
+        document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
+        document.getElementById('drawBrushSelect').value = state.drawingBrush;
+
+        document.fonts.ready.then(() => {
+            drawMeme();
+        }).catch(e => {
+            console.warn("Issue loading local fonts.", e);
+            drawMeme();
+        });
+
+        setupCanvasInteractions();
+        setupDrawingInteractions();
+        window.addEventListener('resize', resizeCanvases);
+
+        // Check if wallet is already connected
+        if (window.ethereum && window.ethereum.selectedAddress) {
+            connectWallet();
+        }
+    });
+
+    function resizeCanvases() {
+        if (canvas.width === 0 || canvas.height === 0) return;
+
+        const previewElement = document.getElementById('preview');
+        const containerRect = previewElement.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+        const canvasRatio = canvas.width / canvas.height;
+
+        let renderWidth, renderHeight;
+
+        if (containerWidth / containerHeight > canvasRatio) {
+            renderHeight = containerHeight;
+            renderWidth = containerHeight * canvasRatio;
+        } else {
+            renderWidth = containerWidth;
+            renderHeight = containerWidth / canvasRatio;
+        }
+
+        canvas.style.width = `${renderWidth}px`;
+        canvas.style.height = `${renderHeight}px`;
+        drawingCanvas.style.width = `${renderWidth}px`;
+        drawingCanvas.style.height = `${renderHeight}px`;
+
+        drawingCanvas.width = canvas.width;
+        drawingCanvas.height = canvas.height;
+
+        updateDrawingContext();
+    }
+
+    function updateDrawingContext() {
+        drawingCtx.lineCap = state.drawingBrush === 'line' ? 'round' : 'butt';
+        drawingCtx.lineJoin = state.drawingBrush === 'line' ? 'round' : 'miter';
+        drawingCtx.strokeStyle = state.drawingColor;
+        drawingCtx.lineWidth = state.drawingSize;
+    }
+
+    function toggleDrawingMode() {
+        state.drawingMode = !state.drawingMode;
+        const button = document.getElementById('drawingModeToggle');
+
+        if (state.drawingMode) {
+            drawingCanvas.classList.add('active-drawing');
+            button.textContent = '🟢 Toggle Drawing Mode (ON)';
+            button.classList.remove('bg-[--color-primary-action]');
+            button.classList.add('bg-red-500');
+            state.selectedLayerIndex = -1; // Deselect layer
+            updateControlPanel();
+            drawMeme(); // Redraw layers without selection box
+        } else {
+            drawingCanvas.classList.remove('active-drawing');
+            button.textContent = '🔴 Toggle Drawing Mode (OFF)';
+            button.classList.add('bg-[--color-primary-action]');
+            button.classList.remove('bg-red-500');
+        }
+    }
+
+    function renderTemplateSelector() {
+        const container = document.getElementById('templateSelector');
+        container.innerHTML = templates.map(t => `
+                <div
+                    onclick="selectTemplate('${t.id}')"
+                    class="control-button cursor-pointer p-1 rounded-lg border-2 border-transparent transition duration-150 ease-in-out ${state.selectedTemplateId === t.id && !state.isCustomBackground ? 'selected-item' : 'hover:border-[--color-accent] bg-[--color-general-button]'}"
+                    data-id="${t.id}"
+                >
+                    <img src="${t.url}"
+                         alt="${t.name}"
+                         class="w-full h-auto object-cover rounded-md aspect-video"
+                         onerror="this.onerror=null; this.src='https://placehold.co/150x85/1f2937/9ca3af?text=/${t.url.split('/')[1]}/Image'"
+                    >
+                    <p class="text-xs text-center mt-1 text-black">${t.name}</p>
+                </div>
+            `).join('');
+    }
+
+    function renderStickerSelector() {
+        const container = document.getElementById('stickerSelector');
+        container.innerHTML = stickers.map(s => `
+                <div
+                    onclick="addPresetImageLayer('${s.url}', '${s.id}')"
+                    class="control-button cursor-pointer p-1 rounded-lg border-2 border-transparent hover:border-[--color-accent] transition duration-150 ease-in-out bg-[--color-general-button]"
+                    data-id="${s.id}"
+                >
+                    <img src="${s.url}"
+                         alt="${s.name}"
+                         class="w-full h-auto object-cover rounded-md aspect-square"
+                         onerror="this.onerror=null; this.src='https://placehold.co/150x150/1f2937/9ca3af?text=/${s.url.split('/')[1]}/Item'"
+                    >
+                    <p class="text-xs text-center mt-1 text-black">${s.name}</p>
+                </div>
+            `).join('');
+    }
+
+    function renderFontSelector() {
+        const container = document.getElementById('fontSelector');
+        container.innerHTML = fonts.map(f => `
+                <button
+                    onclick="selectFont('${f.id}')"
+                    class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200"
+                    id="font-${f.id}"
+                    style="font-family: '${f.family}', ${f.fallback};"
+                >
+                    ${f.name}
+                </button>
+            `).join('');
+    }
+
+    function updateControlPanel() {
+        const index = state.selectedLayerIndex;
+        const layer = state.layers[index];
+
+        const textControls = document.getElementById('textControls');
+        const imageControls = document.getElementById('imageControls');
+        const commonControls = document.getElementById('commonControls');
+        const transformationControls = document.getElementById('transformationControls');
+        const layerTypeDisplay = document.getElementById('currentLayerTypeDisplay');
+
+        textControls.classList.add('hidden');
+        imageControls.classList.add('hidden');
+        commonControls.classList.add('hidden');
+        transformationControls.classList.add('hidden');
+        layerTypeDisplay.textContent = 'None';
+
+        if (index >= 0 && layer) {
+            commonControls.classList.remove('hidden');
+            transformationControls.classList.remove('hidden');
+
+            document.getElementById('rotationSlider').value = layer.rotation;
+            document.getElementById('rotationValue').textContent = `${layer.rotation}°`;
+            document.getElementById('flipXBtn').classList.toggle('selected-item', layer.flipX);
+            document.getElementById('flipYBtn').classList.toggle('selected-item', layer.flipY);
+
+            if (layer.type === 'text') {
+                layerTypeDisplay.textContent = `Text Layer ${index + 1}`;
+                textControls.classList.remove('hidden');
+
+                document.getElementById('currentTextContent').value = layer.content;
+                document.getElementById('boldBtn').classList.toggle('selected-item', layer.isBold);
+                document.getElementById('italicBtn').classList.toggle('selected-item', layer.isItalic);
+                document.getElementById('fontSizeSelect').value = layer.fontSize.toString();
+                document.getElementById('textColorInput').value = layer.color || '#FFFFFF';
+
+                document.querySelectorAll('#fontSelector button').forEach(btn => {
+                    btn.classList.remove('selected-item');
+                    if (`font-${layer.fontId}` === btn.id) {
+                        btn.classList.add('selected-item');
+                    }
+                });
+
+            } else if (layer.type === 'image') {
+                layerTypeDisplay.textContent = `Image/Sticker Layer ${index + 1}`;
+                imageControls.classList.remove('hidden');
+
+                document.getElementById('scaleSlider').value = layer.scale;
+                document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
+            }
+        }
+    }
+
+    function loadCustomTemplateImage(url) {
+        state.isCustomBackground = true;
+        renderTemplateSelector();
+
+        const img = new Image();
+
+        img.onload = () => {
+            state.currentTemplate = img;
+
+            let targetW = img.width;
+            let targetH = img.height;
+
+            if (targetW > MAX_CANVAS_WIDTH) {
+                targetH = targetH * (MAX_CANVAS_WIDTH / targetW);
+                targetW = MAX_CANVAS_WIDTH;
+            }
+            if (targetH > MAX_CANVAS_HEIGHT) {
+                targetW = targetW * (MAX_CANVAS_HEIGHT / targetH);
+                targetH = MAX_CANVAS_HEIGHT;
+            }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+
+            resizeCanvases();
+            drawMeme();
+        };
+        img.onerror = () => {
+            state.currentTemplate = null;
+            state.isCustomBackground = false;
+            console.error("Could not load custom image.");
+            canvas.width = 600;
+            canvas.height = 600;
+            resizeCanvases();
+            drawMeme();
+        }
+        img.src = url;
+    }
+
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target.result;
+            if (state.uploadMode === 'background') {
+                loadCustomTemplateImage(imageUrl);
+            } else if (state.uploadMode === 'layer') {
+                addImageLayer(imageUrl, file.name);
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function selectTemplate(id) {
+        state.selectedTemplateId = id;
+        state.isCustomBackground = false;
+        const selectedTemplate = templates.find(t => t.id === id);
+
+        if (selectedTemplate) {
+            renderTemplateSelector();
+            loadTemplateImage(selectedTemplate.url, selectedTemplate.ratio);
+        }
+    }
+
+    function addPresetImageLayer(url, id) {
+        if (state.stickerImages[id]) {
+            createImageLayerObject(url, state.stickerImages[id]);
+            drawMeme();
+        } else {
+            const img = new Image();
+            img.onload = () => {
+                state.stickerImages[id] = img;
+                createImageLayerObject(url, img);
+                drawMeme();
+            };
+            img.onerror = () => {
+                console.error("Could not load sticker image:", url);
+            }
+            img.src = url;
+        }
+    }
+
+    function addImageLayer(url, name) {
+        const img = new Image();
+        img.onload = () => {
+            createImageLayerObject(url, img, name);
+            drawMeme();
+        };
+        img.onerror = () => {
+            console.error("Could not load uploaded image:", name);
+        }
+        img.src = url;
+    }
+
+    function createImageLayerObject(url, imgObject, name = '') {
+        const newLayer = {
+            type: 'image',
+            id: Date.now(),
+            itemUrl: url,
+            name: name,
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            scale: 1.0,
+            rotation: 0,
+            flipX: false,
+            flipY: false,
+            imageObject: imgObject,
+            originalW: imgObject.width,
+            originalH: imgObject.height,
+            bbox: { x: 0, y: 0, w: 0, h: 0 }
+        };
+
+        if (newLayer.originalW > canvas.width * 0.8 || newLayer.originalH > canvas.height * 0.8) {
+            newLayer.scale = Math.min(
+                (canvas.width * 0.8) / newLayer.originalW,
+                (canvas.height * 0.8) / newLayer.originalH
+            ) * 0.8;
+        }
+
+        state.layers.push(newLayer);
+        state.selectedLayerIndex = state.layers.length - 1;
+        updateControlPanel();
+    }
+
+    function addTextLayer(content = 'New Text', x = MAX_CANVAS_WIDTH / 2, y = MAX_CANVAS_HEIGHT / 2) {
+        const newLayer = {
+            type: 'text',
+            id: Date.now(),
+            content: content.toUpperCase(),
+            x: x,
+            y: y,
+            isBold: content.includes('TOP') || content.includes('BOTTOM') ? true : false,
+            isItalic: false,
+            fontSize: 60,
+            color: '#FFFFFF',
+            fontId: fonts[0].id,
+            rotation: 0,
+            flipX: false,
+            flipY: false,
+            bbox: { x: 0, y: 0, w: 0, h: 0 }
+        };
+        state.layers.push(newLayer);
+        state.selectedLayerIndex = state.layers.length - 1;
+        updateControlPanel();
+        drawMeme();
+    }
+
+    function deleteSelectedLayer() {
+        if (state.selectedLayerIndex < 0) return;
+        state.layers.splice(state.selectedLayerIndex, 1);
+        state.selectedLayerIndex = -1;
+        updateControlPanel();
+        drawMeme();
+    }
+
+    function updateRotation(degrees) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer) {
+            layer.rotation = parseInt(degrees);
+            document.getElementById('rotationValue').textContent = `${layer.rotation}°`;
+            drawMeme();
+        }
+    }
+
+    function toggleFlip(axis) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer) {
+            layer[axis] = !layer[axis];
+            updateControlPanel();
+            drawMeme();
+        }
+    }
+
+    function selectFont(fontId) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer.fontId = fontId;
+            updateControlPanel();
+            drawMeme();
+        }
+    }
+
+    function toggleStyle(styleKey) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            layer[styleKey] = !layer[styleKey];
+            updateControlPanel();
+            drawMeme();
+        }
+    }
+
+    function updateFontSize() {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            const size = document.getElementById('fontSizeSelect').value;
+            layer.fontSize = parseInt(size);
+            updateControlPanel();
+            drawMeme();
+        }
+    }
+
+    function updateCurrentTextContent() {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            const content = document.getElementById('currentTextContent').value;
+            layer.content = content;
+            drawMeme();
+        }
+    }
+
+    function updateTextColor() {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'text') {
+            const color = document.getElementById('textColorInput').value;
+            layer.color = color;
+            drawMeme();
+        }
+    }
+
+    function updateItemScale(scale) {
+        const layer = state.layers[state.selectedLayerIndex];
+        if (layer && layer.type === 'image') {
+            layer.scale = parseFloat(scale);
+            document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
+            drawMeme();
+        }
+    }
+
+    function updateDrawingColor(color) {
+        state.drawingColor = color;
+        drawingCtx.strokeStyle = color;
+        drawingCtx.fillStyle = color;
+    }
+
+    function updateDrawingSize(size) {
+        state.drawingSize = parseInt(size);
+        drawingCtx.lineWidth = state.drawingSize;
+    }
+
+    function updateDrawingBrush(brush) {
+        state.drawingBrush = brush;
+        updateDrawingContext();
+    }
+
+    function clearDrawingLayer() {
+        drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    }
+
+    function drawStar(x, y, size) {
+        const r = size * 1.5;
+        const points = 5;
+        const innerR = r / 2;
+        drawingCtx.fillStyle = state.drawingColor;
+        drawingCtx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const radius = i % 2 === 0 ? r : innerR;
+            const angle = (Math.PI / points) * i - (Math.PI / 2);
+            const drawX = x + radius * Math.cos(angle);
+            const drawY = y + radius * Math.sin(angle);
+            if (i === 0) {
+                drawingCtx.moveTo(drawX, drawY);
+            } else {
+                drawingCtx.lineTo(drawX, drawY);
+            }
+        }
+        drawingCtx.closePath();
+        drawingCtx.fill();
+    }
+
+    function drawSparks(x, y, size) {
+        const numSparks = 5 + Math.floor(size / 5);
+        const scatter = size * 2;
+        drawingCtx.fillStyle = state.drawingColor;
+
+        for (let i = 0; i < numSparks; i++) {
+            const sparkX = x + (Math.random() - 0.5) * scatter;
+            const sparkY = y + (Math.random() - 0.5) * scatter;
+            const sparkSize = Math.random() * (size / 3) + 1;
+            drawingCtx.beginPath();
+            drawingCtx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
+            drawingCtx.fill();
+        }
+    }
+
+    function loadTemplateImage(url, ratio) {
+        const img = new Image();
+
+        img.onload = () => {
+            state.currentTemplate = img;
+
+            let targetW = img.width;
+            let targetH = img.height;
+
+            if (targetW > MAX_CANVAS_WIDTH) {
+                targetH = targetH * (MAX_CANVAS_WIDTH / targetW);
+                targetW = MAX_CANVAS_WIDTH;
+            }
+            if (targetH > MAX_CANVAS_HEIGHT) {
+                targetW = targetW * (MAX_CANVAS_HEIGHT / targetH);
+                targetH = MAX_CANVAS_HEIGHT;
+            }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+
+            const ratioX = canvas.width / MAX_CANVAS_WIDTH;
+            const ratioY = canvas.height / MAX_CANVAS_HEIGHT;
+
+            state.layers.forEach(layer => {
+                layer.x = layer.x * ratioX;
+                layer.y = layer.y * ratioY;
+            });
+
+            // Note: This is a hacky way to update constants, normally you'd use a variable.
+            // Keeping it for consistency with the spirit of the previous code.
+            window.MAX_CANVAS_WIDTH = canvas.width;
+            window.MAX_CANVAS_HEIGHT = canvas.height;
+
+
+            resizeCanvases();
+            drawMeme();
+        };
+        img.onerror = () => {
+            state.currentTemplate = null;
+            console.error("Could not load template image:", url);
+
+            canvas.width = 600;
+            canvas.height = 600;
+
+            resizeCanvases();
+            drawMeme();
+        }
+        img.src = url;
+    }
+
+    function drawMeme() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (state.currentTemplate) {
+            ctx.drawImage(state.currentTemplate, 0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#547cf4';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000000';
+            ctx.font = '30px AppGlobalFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Template Missing or Failed to Load.', canvas.width / 2, canvas.height / 2);
+        }
+
+        state.layers.forEach((layer, index) => {
+            const isSelected = index === state.selectedLayerIndex;
+            if (layer.type === 'text') {
+                drawTextLayer(layer, isSelected);
+            } else if (layer.type === 'image' && layer.imageObject) {
+                drawImageLayer(layer, isSelected);
+            }
+        });
+    }
+
+    function drawImageLayer(layer, isSelected) {
+        if (!layer.imageObject) return;
+
+        const scale = layer.scale;
+        const drawW = layer.originalW * scale;
+        const drawH = layer.originalH * scale;
+        const padding = 5;
+
+        ctx.save();
+        ctx.translate(layer.x, layer.y);
+        ctx.rotate(layer.rotation * Math.PI / 180);
+
+        const flipX = layer.flipX ? -1 : 1;
+        const flipY = layer.flipY ? -1 : 1;
+        ctx.scale(flipX, flipY);
+
+        ctx.drawImage(layer.imageObject, -drawW / 2, -drawH / 2, drawW, drawH);
+
+        layer.bbox = {
+            x: layer.x - drawW / 2 - padding,
+            y: layer.y - drawH / 2 - padding,
+            w: drawW + (padding * 2),
+            h: drawH + (padding * 2),
+            centerX: layer.x,
+            centerY: layer.y,
+            rotation: layer.rotation
+        };
+
+        if (isSelected) {
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#547cf4';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-drawW / 2 - padding, -drawH / 2 - padding, drawW + (padding * 2), drawH + (padding * 2));
+            ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+    }
+
+    function drawTextLayer(layer, isSelected) {
+        const fontObj = fonts.find(f => f.id === layer.fontId);
+        const fontBase = fontObj ? fontObj.family : fonts[0].family;
+
+        let fontStyle = layer.isBold ? '900' : 'normal';
+        if (layer.isItalic) fontStyle += ' italic';
+
+        ctx.font = `${fontStyle} ${layer.fontSize}px ${fontBase}, ${fontObj.fallback}`;
+
+        const maxWidth = canvas.width * 0.95;
+        const lines = getLines(ctx, layer.content.toUpperCase(), maxWidth);
+        const lineHeight = layer.fontSize * 1.2;
+        const totalTextHeight = lines.length * lineHeight;
+
+        let maxLineWidth = 0;
+        lines.forEach(line => {
+            const width = ctx.measureText(line).width;
+            if (width > maxLineWidth) maxLineWidth = width;
+        });
+
+        const padding = 10;
+        layer.bbox = {
+            x: layer.x - (maxLineWidth / 2) - padding,
+            y: layer.y - (totalTextHeight / 2) - padding,
+            w: maxLineWidth + (padding * 2),
+            h: totalTextHeight + (padding * 2),
+            centerX: layer.x,
+            centerY: layer.y,
+            rotation: layer.rotation
+        };
+
+        ctx.save();
+        ctx.translate(layer.x, layer.y);
+        ctx.rotate(layer.rotation * Math.PI / 180);
+
+        const flipX = layer.flipX ? -1 : 1;
+        const flipY = layer.flipY ? -1 : 1;
+        ctx.scale(flipX, flipY);
+
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = Math.floor(layer.fontSize * 0.08);
+        ctx.fillStyle = layer.color || 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        let currentY = -(totalTextHeight / 2) + (lineHeight / 2);
+        lines.forEach((line) => {
+            ctx.strokeText(line, 0, currentY);
+            ctx.fillText(line, 0, currentY);
+            currentY += lineHeight;
+        });
+
+        if (isSelected) {
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#547cf4';
+            ctx.lineWidth = 3;
+
+            ctx.strokeRect(
+                -maxLineWidth / 2 - padding,
+                -totalTextHeight / 2 - padding,
+                maxLineWidth + (padding * 2),
+                totalTextHeight + (padding * 2)
+            );
+            ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+    }
+
+    function getLines(ctx, text, maxWidth) {
+        const words = text.split(" ");
+        let lines = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const width = ctx.measureText(currentLine + " " + word).width;
+
+            if (width < maxWidth) {
+                currentLine += " " + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+        lines.push(currentLine);
+        return lines;
+    }
+
+    function getEventLocation(event, element) {
+        const rect = element.getBoundingClientRect();
+        let clientX, clientY;
+
+        if (event.touches && event.touches.length > 0) {
+            clientX = event.touches[0].clientX;
+            clientY = event.touches[0].clientY;
+        } else if (event.clientX !== undefined) {
+            clientX = event.clientX;
+            clientY = event.clientY;
+        } else {
+            return null;
+        }
+
+        const scaleX = element.width / rect.width;
+        const scaleY = element.height / rect.height;
+
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function setupCanvasInteractions() {
+        const startEvents = ['mousedown', 'touchstart'];
+        const moveEvents = ['mousemove', 'touchmove'];
+        const endEvents = ['mouseup', 'touchend', 'touchcancel'];
+
+        startEvents.forEach(eventName => canvas.addEventListener(eventName, handleStart, false));
+        moveEvents.forEach(eventName => canvas.addEventListener(eventName, handleMove, false));
+        endEvents.forEach(eventName => canvas.addEventListener(eventName, handleEnd, false));
+    }
+
+    function checkHit(loc, bbox) {
+        return loc.x >= bbox.x && loc.x <= bbox.x + bbox.w &&
+            loc.y >= bbox.y && loc.y <= bbox.y + bbox.h;
+    }
+
+    function handleStart(event) {
+        event.preventDefault();
+        const loc = getEventLocation(event, canvas);
+        if (!loc) return;
+
+        let hitIndex = -1;
+        for (let i = state.layers.length - 1; i >= 0; i--) {
+            const layer = state.layers[i];
+            if (checkHit(loc, layer.bbox)) {
+                hitIndex = i;
+                break;
+            }
+        }
+
+        state.selectedLayerIndex = hitIndex;
+        updateControlPanel();
+        drawMeme();
+
+        if (hitIndex !== -1) {
+            state.isDragging = true;
+            state.dragStartX = loc.x - state.layers[hitIndex].x;
+            state.dragStartY = loc.y - state.layers[hitIndex].y;
+        }
+    }
+
+    function handleMove(event) {
+        if (!state.isDragging || state.selectedLayerIndex < 0) return;
+        event.preventDefault();
+
+        const loc = getEventLocation(event, canvas);
+        if (!loc) return;
+
+        const layer = state.layers[state.selectedLayerIndex];
+
+        let newX = loc.x - state.dragStartX;
+        let newY = loc.y - state.dragStartY;
+
+        newX = Math.max(0, Math.min(newX, canvas.width));
+        newY = Math.max(0, Math.min(newY, canvas.height));
+
+        layer.x = newX;
+        layer.y = newY;
+
+        drawMeme();
+    }
+
+    function handleEnd(event) {
+        if (state.isDragging) {
+            event.preventDefault();
+            state.isDragging = false;
+            drawMeme();
+        }
+    }
+
+    function setupDrawingInteractions() {
+        updateDrawingContext();
+
+        const startEvents = ['mousedown', 'touchstart'];
+        const moveEvents = ['mousemove', 'touchmove'];
+        const endEvents = ['mouseup', 'touchend', 'touchcancel'];
+
+        startEvents.forEach(eventName => drawingCanvas.addEventListener(eventName, startDrawing, false));
+        moveEvents.forEach(eventName => drawingCanvas.addEventListener(eventName, draw, false));
+        endEvents.forEach(eventName => drawingCanvas.addEventListener(eventName, stopDrawing, false));
+    }
+
+    function startDrawing(event) {
+        if (!state.drawingMode) return;
+        event.preventDefault();
+        state.isDrawing = true;
+
+        const loc = getEventLocation(event, drawingCanvas);
+        if (!loc) return;
+
+        [state.lastX, state.lastY] = [loc.x, loc.y];
+
+        if (state.drawingBrush === 'star') {
+            drawStar(loc.x, loc.y, state.drawingSize);
+            stopDrawing();
+            return;
+        } else if (state.drawingBrush === 'sparks') {
+            drawSparks(loc.x, loc.y, state.drawingSize);
+            stopDrawing();
+            return;
+        }
+
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(loc.x, loc.y);
+    }
+
+    function draw(event) {
+        if (!state.isDrawing || state.drawingBrush !== 'line') return;
+        event.preventDefault();
+
+        const loc = getEventLocation(event, drawingCanvas);
+        if (!loc) return;
+
+        drawingCtx.lineTo(loc.x, loc.y);
+        drawingCtx.stroke();
+
+        [state.lastX, state.lastY] = [loc.x, loc.y];
+    }
+
+    function stopDrawing() {
+        state.isDrawing = false;
+        if (state.drawingBrush === 'line') {
+            drawingCtx.closePath();
+        }
+    }
+
+    function downloadMeme() {
+        if (!state.currentTemplate) {
+            showToast('Please select a template or upload an image first', 'error');
+            return;
+        }
+
+        const originalSelection = state.selectedLayerIndex;
+        state.selectedLayerIndex = -1;
+        drawMeme();
+
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = canvas.width;
+        finalCanvas.height = canvas.height;
+        const finalCtx = finalCanvas.getContext('2d');
+
+        finalCtx.drawImage(canvas, 0, 0);
+        finalCtx.drawImage(drawingCanvas, 0, 0);
+
+        // Add BaseApp watermark if connected
+        if (isConnected) {
+            finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            finalCtx.fillRect(10, finalCanvas.height - 40, 200, 30);
+            finalCtx.fillStyle = 'white';
+            finalCtx.font = '14px AppGlobalFont, sans-serif';
+            finalCtx.fillText('Created with BaseMeme Editor', 20, finalCanvas.height - 20);
+        }
+
+        const dataURL = finalCanvas.toDataURL('image/png');
+        state.selectedLayerIndex = originalSelection;
+        drawMeme();
+
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = `BaseMeme_${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        showToast('Meme downloaded successfully!', 'success');
+    }
+</script>
+
+</body>
+</html>
