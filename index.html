@@ -30,63 +30,24 @@
             font-family: 'AppGlobalFont', sans-serif;
             background-color: var(--color-dark-bg);
             min-height: 100vh;
-        }
-
-        /* General Button Styling */
-        .control-button {
-            transition: all 0.15s ease-in-out;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-            color: var(--color-black);
-            background-color: var(--color-general-button);
-        }
-        .control-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-            background-color: #8c90b6;
-        }
-        .primary-action-button {
-            background-color: var(--color-primary-action);
-            color: var(--color-white);
-        }
-        .primary-action-button:hover {
-            background-color: var(--color-dark-accent);
-        }
-        .selected-item {
-            border-width: 4px;
-            border-color: var(--color-accent) !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         /* Canvas container setup */
-        /* This container is the wrapper that holds both canvas elements and the resize handle */
         .canvas-container {
-            position: relative;
-            /* Ensures the canvas's physical size is handled by this container */
+            position: relative; 
             display: inline-block; 
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            /* Reset to default background here, not on the canvas itself */
             background-color: var(--color-white); 
+            transition: transform 0.3s ease; /* Smooth scaling */
         }
+        #memeCanvas { display: block; touch-action: none; }
+        #drawingCanvas { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
+        #drawingCanvas.active-drawing { pointer-events: auto; cursor: crosshair; }
 
-        /* Canvas element itself */
-        #memeCanvas {
-            display: block;
-            touch-action: none; /* Crucial for preventing mobile scroll when interacting with canvas */
-        }
-
-        /* Drawing/Interaction Canvas overlay */
-        #drawingCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 10;
-            pointer-events: none;
-        }
-        #drawingCanvas.active-drawing {
-            pointer-events: auto;
-            cursor: crosshair;
-        }
-
-        /* New: Canvas Resize Handle */
+        /* Canvas Resize Handle */
         #resizeHandle {
             position: absolute;
             bottom: -15px;
@@ -102,52 +63,148 @@
             touch-action: none;
         }
         
-        /* Mobile Layout: Canvas first, then Controls */
+        /* General Button Styling */
+        .control-button {
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            color: var(--color-black);
+            background-color: var(--color-general-button);
+        }
+        .control-button:hover {
+            transform: translateY(-1px);
+            background-color: #8c90b6;
+        }
+        .primary-action-button {
+            background-color: var(--color-primary-action);
+            color: var(--color-white);
+        }
+        .primary-action-button:hover {
+            background-color: var(--color-dark-accent);
+        }
+        .selected-item {
+            border-width: 4px;
+            border-color: var(--color-accent) !important;
+        }
+
+        /* --- MOBILE LAYOUT (App-like Drawer/Modal System) --- */
         #preview-wrapper {
             width: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-            order: 1; /* Canvas section appears first */
-            padding-top: 1rem;
-            padding-bottom: 1rem;
+            flex-grow: 1; /* Takes up available space */
+            padding: 1rem;
+            position: relative;
         }
-        #controls {
-            width: 100%;
-            order: 2; /* Controls section appears second */
+        
+        /* Floating Action Button */
+        #main-controls-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 30;
+            background-color: var(--color-accent);
+            color: var(--color-white);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.15s;
+        }
+        #main-controls-fab:hover {
+            background-color: var(--color-primary-action);
         }
 
-        /* --- DESKTOP/Large Screen LAYOUT (Sidebar on left, Canvas on right) --- */
+        /* Modal/Drawer Container */
+        .app-drawer-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 40;
+            display: none; /* Hidden by default */
+        }
+        .app-drawer-content {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%; /* Full width on small mobile */
+            max-width: 400px; /* Constrain width on larger devices */
+            height: 100%;
+            background-color: var(--color-dark-bg);
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+            transform: translateX(100%); /* Slide out from right */
+            transition: transform 0.3s ease-out;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .app-drawer-container.active .app-drawer-content {
+            transform: translateX(0);
+        }
+        
+        /* Secondary Panel/Modal for selections (Images, Fonts, etc) */
+        .secondary-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--color-dark-bg);
+            transform: translateX(100%); /* Hidden to the right */
+            transition: transform 0.3s ease-out;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .secondary-panel.active {
+            transform: translateX(0); /* Slides in */
+        }
+
+        /* --- DESKTOP LAYOUT (Retaining two-column for large screens) --- */
         @media (min-width: 1024px) {
             body { 
                 height: 100vh; 
                 overflow: hidden; 
-                display: flex; 
                 flex-direction: row; 
             }
-            #controls {
-                position: fixed; 
-                top: 0; 
-                left: 0; 
-                height: 100vh;
-                width: 33.3333%; 
-                overflow-y: auto; 
-                z-index: 20;
+            #main-controls-fab {
+                display: none; /* Hide FAB on desktop */
+            }
+            .app-drawer-container {
+                position: static;
+                width: 33.3333%;
+                height: 100%;
+                display: block !important; /* Force display side-by-side */
+                background-color: transparent;
                 order: 1;
-                padding-bottom: 6rem; 
+                z-index: 20;
+            }
+            .app-drawer-content {
+                position: static;
+                width: 100%;
+                max-width: none;
+                height: 100%;
+                transform: translateX(0); /* Always visible */
+                box-shadow: none;
+                padding-bottom: 6rem; /* Space for sticky buttons */
+            }
+            .secondary-panel {
+                /* On desktop, keep the secondary panel modal-like but overlaying the controls column */
+                position: absolute;
+                height: 100%;
+                z-index: 50; /* Make sure it overlays the main controls */
             }
             #preview-wrapper {
-                margin-left: 33.3333%; 
                 width: 66.6667%; 
                 height: 100vh; 
-                display: flex; 
-                flex-direction: column; 
-                justify-content: center;
-                align-items: center;
-                overflow-y: auto; 
                 order: 2;
-                /* Ensures canvas is centered visually */
-                padding: 1rem; 
+                overflow: auto; 
             }
             .sticky-footer {
                 position: sticky; 
@@ -161,168 +218,230 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col lg:flex-row">
+<body>
 
-<div id="controls" class="w-full bg-[--color-dark-bg] text-white p-4 flex flex-col space-y-4">
-    <h1 class="text-3xl font-extrabold text-[--color-accent] border-b border-[--color-accent] pb-3 mb-4">BaseMeme Layer Editor</h1>
-    <p class="text-sm text-gray-200" id="baseAppStatus">BaseApp Status: Connecting...</p>
-
-    <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Upload Images</h2>
-        <div class="flex flex-col space-y-2">
-            <input type="file" id="imageUploadInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
-            <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'background';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
-                ⬆️ Upload & Set as Background
-            </button>
-            <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'layer';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
-                🖼️ Upload & Add as Layer (Movable/Rotatable)
-            </button>
-            <p class="text-sm text-gray-200">The layered image can be selected and edited below.</p>
-        </div>
-    </section>
-
-    <hr class="border-[--color-accent]">
-
-    <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Template Background</h2>
-        <div id="templateSelector" class="grid grid-cols-3 gap-2"></div>
-    </section>
-
-    <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Add Sticker Item</h2>
-        <div id="stickerSelector" class="grid grid-cols-3 gap-2"></div>
-    </section>
-
-    <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Drawing Tool (Paint)</h2>
-        <div id="drawingControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
-            <button id="drawingModeToggle" onclick="toggleDrawingMode()" class="control-button w-full py-2 font-bold rounded-lg bg-[--color-primary-action] text-white">
-                🔴 Toggle Drawing Mode (OFF)
-            </button>
-             <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
-                    <label for="drawColorInput" class="text-sm text-black cursor-pointer">Color:</label>
-                    <input type="color" id="drawColorInput" value="#547cf4" class="w-8 h-8 rounded cursor-pointer" oninput="updateDrawingColor(event.target.value)">
-                </div>
-
-                <div class="flex items-center space-x-2">
-                    <label for="drawSizeSelect" class="text-sm text-white">Size:</label>
-                    <select id="drawSizeSelect" onchange="updateDrawingSize(event.target.value)" class="control-button p-2 rounded text-black">
-                        <option value="5">Small</option>
-                        <option value="15" selected>Medium</option>
-                        <option value="30">Large</option>
-                        <option value="50">Huge</option>
-                    </select>
-                </div>
+    <div id="preview-wrapper">
+        <div id="preview" class="w-full flex items-center justify-center relative">
+            <div id="canvas-container" class="canvas-container rounded-xl shadow-2xl">
+                <canvas id="memeCanvas" class="touch-none"></canvas>
+                <canvas id="drawingCanvas" class="touch-none"></canvas>
+                <div id="resizeHandle"></div>
             </div>
-            <div>
-                <label for="drawBrushSelect" class="text-sm text-white block mb-1">Brush Style:</label>
-                <select id="drawBrushSelect" onchange="updateDrawingBrush(event.target.value)" class="control-button w-full p-2 rounded text-black">
-                    <option value="line" selected>Line (Default)</option>
-                    <option value="star">⭐ Star</option>
-                    <option value="sparks">✨ Sparks</option>
-                </select>
-            </div>
-            <button onclick="clearDrawingLayer()" class="control-button w-full py-2 rounded text-black font-bold">
-                🧹 Clear Drawing Layer
-            </button>
         </div>
-    </section>
+    </div>
 
-    <hr class="border-[--color-accent]">
+    <div id="main-controls-fab" onclick="toggleMainDrawer()">
+        ⚙️
+    </div>
 
-    <section class="flex-grow pt-4">
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
-        <p class="text-sm text-gray-200 mb-2">Tap/click layer on image to edit. **(Must turn OFF Drawing Mode)**</p>
-        <div id="contextualControls" class="space-y-4">
+    <div id="app-drawer-container" class="app-drawer-container">
+        <div id="app-drawer-content" class="app-drawer-content">
+            <div class="flex justify-between items-center border-b border-[--color-accent] pb-3 mb-4 sticky top-0 bg-[--color-dark-bg] z-50 pt-2">
+                <h1 class="text-2xl font-extrabold text-[--color-accent]">🛠️ Meme Editor</h1>
+                <button onclick="toggleMainDrawer()" class="text-white text-2xl p-2 rounded-full hover:bg-[--color-dark-accent]">
+                    &times; </button>
+            </div>
+            
+            <p class="text-sm text-gray-200 mb-4" id="baseAppStatus">BaseApp Status: Connecting...</p>
+            
+            <div id="main-menu" class="space-y-3">
+                
+                <button onclick="openSecondaryPanel('upload')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                    <span>🖼️ Image & Background</span>
+                    <span>></span>
+                </button>
+                
+                <button onclick="openSecondaryPanel('templates')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                    <span>📑 Templates</span>
+                    <span>></span>
+                </button>
+                
+                <button onclick="openSecondaryPanel('stickers')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                    <span>✨ Stickers & Items</span>
+                    <span>></span>
+                </button>
+                
+                <button onclick="openSecondaryPanel('text')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                    <span>🅰️ Text & Fonts</span>
+                    <span>></span>
+                </button>
+                
+                <button onclick="openSecondaryPanel('drawing')" class="control-button w-full py-3 font-bold rounded-lg text-lg flex justify-between items-center bg-[--color-general-button] hover:bg-gray-200">
+                    <span>✏️ Drawing Tool</span>
+                    <span>></span>
+                </button>
+                
+                <hr class="border-[--color-accent] my-4">
 
-            <div id="textControls" class="space-y-4 hidden">
-                <label for="currentTextContent" class="block text-sm font-medium text-white">Text Content</label>
-                <textarea id="currentTextContent" rows="3" placeholder="Enter text content..." class="w-full p-2 rounded bg-white text-black border border-black focus:ring-[--color-accent] focus:border-[--color-accent] mt-1" oninput="updateCurrentTextContent()"></textarea>
-                <div>
-                    <span class="block text-sm font-medium text-white mb-1">Font Family:</span>
-                    <div id="fontSelector" class="flex flex-wrap gap-2"></div>
-                </div>
-                <div class="flex flex-wrap items-center gap-3 mb-4">
-                    <button id="boldBtn" onclick="toggleStyle('isBold')" class="control-button px-3 py-2 rounded">
-                        <span class="font-black">B</span>
-                    </button>
-                    <button id="italicBtn" onclick="toggleStyle('isItalic')" class="control-button px-3 py-2 rounded">
-                        <span class="italic">I</span>
-                    </button>
-                    <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
-                        <label for="textColorInput" class="text-xs text-black cursor-pointer">Color:</label>
-                        <input type="color" id="textColorInput" value="#ffffff" class="w-8 h-8 rounded cursor-pointer" oninput="updateTextColor()">
+                <h2 class="text-xl font-bold text-[--color-accent] pt-2">Selected Layer: <span id="currentLayerTypeDisplay">None</span></h2>
+                
+                <div id="contextualControls" class="space-y-4">
+                     <div id="commonControls" class="hidden space-y-3">
+                        <button onclick="deleteSelectedLayer()" class="control-button w-full py-3 rounded bg-red-500 hover:bg-red-600 text-white font-bold">
+                            🗑️ Delete Selected Layer
+                        </button>
+                    </div>
+                    
+                    <div id="transformationControls" class="space-y-4 hidden p-3 rounded-lg bg-[--color-section-bg]">
+                        <h3 class="text-lg font-semibold text-white">Transformations</h3>
+                        <div>
+                            <label for="rotationSlider" class="block text-sm font-medium text-white">
+                                Rotation: <span id="rotationValue">0°</span>
+                            </label>
+                            <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateRotation(event.target.value)">
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button id="flipXBtn" onclick="toggleFlip('flipX')" class="control-button px-3 py-2 rounded">
+                                ↔️ Flip X (Mirror)
+                            </button>
+                            <button id="flipYBtn" onclick="toggleFlip('flipY')" class="control-button px-3 py-2 rounded">
+                                ↕️ Flip Y
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <span class="block text-sm font-medium text-white mb-1">Font Size:</span>
-                    <select id="fontSizeSelect" onchange="updateFontSize()" class="control-button w-full p-2 rounded text-black">
-                        <option value="40">Size: Small</option>
-                        <option value="60" selected>Size: Medium</option>
-                        <option value="80">Size: Large</option>
-                        <option value="100">Size: Extra Large</option>
-                        <option value="120">Size: Huge</option>
-                    </select>
-                </div>
-                <h3 class="text-lg font-semibold text-white border-t border-[--color-accent] pt-3">Transformations</h3>
+
             </div>
 
-            <div id="transformationControls" class="space-y-4 hidden">
-                <div>
-                    <label for="rotationSlider" class="block text-sm font-medium text-white">
-                        Rotation: <span id="rotationValue">0°</span>
-                    </label>
-                    <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateRotation(event.target.value)">
-                </div>
-                <div class="flex flex-wrap items-center gap-3">
-                    <button id="flipXBtn" onclick="toggleFlip('flipX')" class="control-button px-3 py-2 rounded">
-                        ↔️ Flip X (Mirror)
-                    </button>
-                    <button id="flipYBtn" onclick="toggleFlip('flipY')" class="control-button px-3 py-2 rounded">
-                        ↕️ Flip Y
-                    </button>
-                </div>
-            </div>
-
-            <div id="imageControls" class="space-y-4 hidden">
-                <label for="scaleSlider" class="block text-sm font-medium text-white">
-                    Item Scale: <span id="scaleValue">100%</span>
-                </label>
-                <input type="range" id="scaleSlider" min="0.2" max="3" step="0.1" value="1.0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateItemScale(event.target.value)">
-                <h3 class="text-lg font-semibold text-white border-t border-[--color-accent] pt-3">Transformations</h3>
-            </div>
-
-            <div id="commonControls" class="hidden">
-                <button onclick="addTextLayer('NEW TEXT')" class="control-button w-full py-2 bg-[--color-accent] hover:bg-opacity-90 text-black font-bold rounded-lg mb-4">
-                    ➕ Add New Text Layer
+            <div class="sticky-footer flex flex-col space-y-2 mt-6">
+                <button onclick="postToBaseApp()" class="control-button w-full py-3 font-bold rounded-lg shadow-lg bg-green-500 hover:bg-green-600 text-white primary-action-button">
+                    🚀 Post to BaseApp
                 </button>
-                <button onclick="deleteSelectedLayer()" class="control-button w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-bold">
-                    🗑️ Delete Selected Layer
+                <button onclick="downloadMeme(true)" class="primary-action-button control-button w-full py-3 font-bold rounded-lg shadow-lg bg-[--color-primary-action]">
+                    ⬇️ Download BaseMeme
                 </button>
             </div>
-        </div>
-    </section>
 
-    <div class="sticky-footer flex flex-col space-y-2">
-        <button onclick="postToBaseApp()" class="control-button w-full py-3 font-bold rounded-lg shadow-lg bg-green-500 hover:bg-green-600 text-white primary-action-button">
-            🚀 Post to BaseApp
-        </button>
-        <button onclick="downloadMeme(true)" class="primary-action-button control-button w-full py-3 font-bold rounded-lg shadow-lg bg-[--color-primary-action]">
-            ⬇️ Download BaseMeme (Fallback)
-        </button>
-    </div>
-</div>
 
-<div id="preview-wrapper" class="w-full">
-    <div id="preview" class="w-full flex items-center justify-center p-4 lg:p-8 z-20 relative min-h-[300px]">
-        <div id="canvas-container" class="canvas-container rounded-xl shadow-2xl">
-            <canvas id="memeCanvas" class="touch-none"></canvas>
-            <canvas id="drawingCanvas" class="touch-none"></canvas>
-            <div id="resizeHandle"></div>
+            <div id="upload-panel" class="secondary-panel">
+                <div class="flex justify-between items-center border-b border-[--color-accent] pb-3 mb-4 sticky top-0 bg-[--color-dark-bg] z-50 pt-2">
+                    <h2 class="text-xl font-bold text-[--color-accent]">🖼️ Image & Background</h2>
+                    <button onclick="closeSecondaryPanel()" class="text-white text-2xl p-2 rounded-full hover:bg-[--color-dark-accent]">&times;</button>
+                </div>
+                <div class="space-y-4">
+                    <input type="file" id="imageUploadInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'background';" class="primary-action-button control-button w-full py-3 font-bold rounded-lg">
+                        ⬆️ Upload & Set as Background
+                    </button>
+                    <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'layer';" class="primary-action-button control-button w-full py-3 font-bold rounded-lg">
+                        🖼️ Upload & Add as Layer
+                    </button>
+                    <hr class="border-[--color-section-bg]">
+                    <h3 class="text-lg font-bold text-white">Layer Scale (Selected Image)</h3>
+                    <div id="imageControls" class="space-y-2">
+                         <label for="scaleSlider" class="block text-sm font-medium text-white">
+                            Item Scale: <span id="scaleValue">100%</span>
+                        </label>
+                        <input type="range" id="scaleSlider" min="0.2" max="3" step="0.1" value="1.0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateItemScale(event.target.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div id="templates-panel" class="secondary-panel">
+                <div class="flex justify-between items-center border-b border-[--color-accent] pb-3 mb-4 sticky top-0 bg-[--color-dark-bg] z-50 pt-2">
+                    <h2 class="text-xl font-bold text-[--color-accent]">📑 Select Template</h2>
+                    <button onclick="closeSecondaryPanel()" class="text-white text-2xl p-2 rounded-full hover:bg-[--color-dark-accent]">&times;</button>
+                </div>
+                <div id="templateSelector" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+            </div>
+
+            <div id="stickers-panel" class="secondary-panel">
+                <div class="flex justify-between items-center border-b border-[--color-accent] pb-3 mb-4 sticky top-0 bg-[--color-dark-bg] z-50 pt-2">
+                    <h2 class="text-xl font-bold text-[--color-accent]">✨ Select Sticker</h2>
+                    <button onclick="closeSecondaryPanel()" class="text-white text-2xl p-2 rounded-full hover:bg-[--color-dark-accent]">&times;</button>
+                </div>
+                <div id="stickerSelector" class="grid grid-cols-3 gap-3"></div>
+            </div>
+            
+            <div id="text-panel" class="secondary-panel">
+                <div class="flex justify-between items-center border-b border-[--color-accent] pb-3 mb-4 sticky top-0 bg-[--color-dark-bg] z-50 pt-2">
+                    <h2 class="text-xl font-bold text-[--color-accent]">🅰️ Text Options</h2>
+                    <button onclick="closeSecondaryPanel()" class="text-white text-2xl p-2 rounded-full hover:bg-[--color-dark-accent]">&times;</button>
+                </div>
+                <div class="space-y-4">
+                    <button onclick="addTextLayer('NEW TEXT')" class="control-button w-full py-3 bg-[--color-accent] hover:bg-opacity-90 text-black font-bold rounded-lg">
+                        ➕ Add New Text Layer
+                    </button>
+                    
+                    <div id="textControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg]">
+                        <h3 class="text-lg font-semibold text-white">Selected Text Layer:</h3>
+                        <label for="currentTextContent" class="block text-sm font-medium text-white">Text Content</label>
+                        <textarea id="currentTextContent" rows="3" placeholder="Enter text content..." class="w-full p-2 rounded bg-white text-black border border-black focus:ring-[--color-accent] focus:border-[--color-accent] mt-1" oninput="updateCurrentTextContent()"></textarea>
+                        
+                        <div>
+                            <span class="block text-sm font-medium text-white mb-1">Font Family:</span>
+                            <div id="fontSelector" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        
+                        <div class="flex flex-wrap items-center gap-3 mb-4">
+                            <button id="boldBtn" onclick="toggleStyle('isBold')" class="control-button px-3 py-2 rounded">
+                                <span class="font-black">B</span>
+                            </button>
+                            <button id="italicBtn" onclick="toggleStyle('isItalic')" class="control-button px-3 py-2 rounded">
+                                <span class="italic">I</span>
+                            </button>
+                            <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
+                                <label for="textColorInput" class="text-xs text-black cursor-pointer">Color:</label>
+                                <input type="color" id="textColorInput" value="#ffffff" class="w-8 h-8 rounded cursor-pointer" oninput="updateTextColor()">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <span class="block text-sm font-medium text-white mb-1">Font Size:</span>
+                            <select id="fontSizeSelect" onchange="updateFontSize()" class="control-button w-full p-2 rounded text-black">
+                                <option value="40">Size: Small</option>
+                                <option value="60" selected>Size: Medium</option>
+                                <option value="80">Size: Large</option>
+                                <option value="100">Size: Extra Large</option>
+                                <option value="120">Size: Huge</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="drawing-panel" class="secondary-panel">
+                 <div class="flex justify-between items-center border-b border-[--color-accent] pb-3 mb-4 sticky top-0 bg-[--color-dark-bg] z-50 pt-2">
+                    <h2 class="text-xl font-bold text-[--color-accent]">✏️ Drawing Options</h2>
+                    <button onclick="closeSecondaryPanel()" class="text-white text-2xl p-2 rounded-full hover:bg-[--color-dark-accent]">&times;</button>
+                </div>
+                <div id="drawingControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
+                    <button id="drawingModeToggle" onclick="toggleDrawingMode()" class="control-button w-full py-2 font-bold rounded-lg bg-[--color-primary-action] text-white">
+                        🔴 Toggle Drawing Mode (OFF)
+                    </button>
+                     <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
+                            <label for="drawColorInput" class="text-sm text-black cursor-pointer">Color:</label>
+                            <input type="color" id="drawColorInput" value="#547cf4" class="w-8 h-8 rounded cursor-pointer" oninput="updateDrawingColor(event.target.value)">
+                        </div>
+
+                        <div class="flex items-center space-x-2">
+                            <label for="drawSizeSelect" class="text-sm text-white">Size:</label>
+                            <select id="drawSizeSelect" onchange="updateDrawingSize(event.target.value)" class="control-button p-2 rounded text-black">
+                                <option value="5">Small</option>
+                                <option value="15" selected>Medium</option>
+                                <option value="30">Large</option>
+                                <option value="50">Huge</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="drawBrushSelect" class="text-sm text-white block mb-1">Brush Style:</label>
+                        <select id="drawBrushSelect" onchange="updateDrawingBrush(event.target.value)" class="control-button w-full p-2 rounded text-black">
+                            <option value="line" selected>Line (Default)</option>
+                            <option value="star">⭐ Star</option>
+                            <option value="sparks">✨ Sparks</option>
+                        </select>
+                    </div>
+                    <button onclick="clearDrawingLayer()" class="control-button w-full py-2 rounded text-black font-bold">
+                        🧹 Clear Drawing Layer
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
-</div>
+
 
 <script>
     // --- SIMULATED BASE ACCOUNT SDK (IMPORTANT) ---
@@ -363,10 +482,10 @@
     ];
 
     const fonts = [
-        { id: 'f4', name: 'font4.otf (Global)', family: 'AppGlobalFont', fallback: 'sans-serif' },
-        { id: 'f1', name: 'font1.ttf', family: 'LocalFont1', fallback: 'sans-serif' },
-        { id: 'f2', name: 'font2.ttf', family: 'LocalFont2', fallback: 'serif' },
-        { id: 'f3', name: 'font3.ttf', family: 'LocalFont3', fallback: 'cursive' }
+        { id: 'f4', name: 'Global', family: 'AppGlobalFont', fallback: 'sans-serif' },
+        { id: 'f1', name: 'Local Font 1', family: 'LocalFont1', fallback: 'sans-serif' },
+        { id: 'f2', name: 'Local Font 2', family: 'LocalFont2', fallback: 'serif' },
+        { id: 'f3', name: 'Local Font 3', family: 'LocalFont3', fallback: 'cursive' }
     ];
 
     const canvas = document.getElementById('memeCanvas');
@@ -375,8 +494,8 @@
     const drawingCtx = drawingCanvas.getContext('2d');
     const canvasContainer = document.getElementById('canvas-container');
 
-    const MIN_CANVAS_SIZE = 100; // Minimum size for width and height
-    const MAX_CANVAS_SIZE = 1200; // Maximum size for width and height (for performance)
+    const MIN_CANVAS_SIZE = 100;
+    const MAX_CANVAS_SIZE = 1200;
 
     let state = {
         selectedTemplateId: templates[0].id,
@@ -384,7 +503,7 @@
         layers: [],
         selectedLayerIndex: -1,
         isDragging: false,
-        isResizing: false, // New state for canvas resizing
+        isResizing: false,
         dragStartX: 0,
         dragStartY: 0,
         stickerImages: {},
@@ -405,7 +524,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         BaseAccountSDK.connect(); 
         
-        // Initial canvas dimensions
         canvas.width = 600;
         canvas.height = 600;
 
@@ -415,7 +533,6 @@
         
         loadTemplateImage(initialTemplate.url, initialTemplate.ratio);
 
-        // Initial text layers are added only if we load the template successfully
         addTextLayer('TOP TEXT', canvas.width / 2, 0.1 * canvas.height);
         addTextLayer('BOTTOM TEXT', canvas.width / 2, 0.9 * canvas.height);
 
@@ -433,17 +550,42 @@
 
         setupCanvasInteractions();
         setupDrawingInteractions();
-        setupCanvasResizingInteractions(); // NEW: Setup drag-to-resize
+        setupCanvasResizingInteractions();
         window.addEventListener('resize', resizeCanvases);
     });
     // --- End Initialization ---
 
+    // --- APP DRAWER/MODAL FUNCTIONS ---
 
-    // --- CANVAS RESIZING INTERACTIONS (NEW) ---
+    function toggleMainDrawer() {
+        const drawer = document.getElementById('app-drawer-container');
+        drawer.classList.toggle('active');
+        // Ensure no secondary panel is active when opening/closing the main drawer
+        document.querySelectorAll('.secondary-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+    }
+
+    function openSecondaryPanel(panelId) {
+        document.querySelectorAll('.secondary-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        document.getElementById(`${panelId}-panel`).classList.add('active');
+        updateControlPanel(true); // Update the sub-panels based on selected layer
+    }
+
+    function closeSecondaryPanel() {
+        document.querySelectorAll('.secondary-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+    }
+    
+    // --- CANVAS RESIZING INTERACTIONS ---
 
     function setupCanvasResizingInteractions() {
         const handle = document.getElementById('resizeHandle');
         
+        // Use the canvas container for interaction, as the handle is relative to it
         handle.addEventListener('mousedown', startResizing);
         window.addEventListener('mousemove', resize);
         window.addEventListener('mouseup', stopResizing);
@@ -456,8 +598,6 @@
     function startResizing(e) {
         e.preventDefault();
         state.isResizing = true;
-        
-        // Temporarily change the cursor for the whole body
         document.body.style.cursor = 'nwse-resize'; 
     }
 
@@ -465,8 +605,7 @@
         if (!state.isResizing) return;
         e.preventDefault();
 
-        // Get the position relative to the preview wrapper
-        const previewRect = document.getElementById('preview').getBoundingClientRect();
+        const containerRect = canvasContainer.getBoundingClientRect();
         
         let clientX, clientY;
         if (e.touches && e.touches.length > 0) {
@@ -477,19 +616,20 @@
             clientY = e.clientY;
         }
 
-        // Calculate position relative to the canvas container's top-left corner
-        const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, clientX - canvasContainer.getBoundingClientRect().left));
-        const newHeight = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, clientY - canvasContainer.getBoundingClientRect().top));
+        // Calculate position relative to the scaled container's top-left corner
+        const currentScale = containerRect.width / canvas.width;
+        
+        // Calculate the desired position in actual canvas pixels
+        const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientX - containerRect.left) / currentScale * (canvas.width / containerRect.width) * containerRect.width));
+        const newHeight = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientY - containerRect.top) / currentScale * (canvas.height / containerRect.height) * containerRect.height));
 
-        // Get old dimensions for scaling layers
         const oldWidth = canvas.width;
         const oldHeight = canvas.height;
 
-        // Apply new raw pixel dimensions to the canvas
+        // Set the new raw pixel dimensions
         canvas.width = newWidth;
         canvas.height = newHeight;
 
-        // Calculate scaling factors
         const widthRatio = newWidth / oldWidth;
         const heightRatio = newHeight / oldHeight;
         
@@ -498,27 +638,14 @@
             layer.x *= widthRatio;
             layer.y *= heightRatio;
             
-            // Text: Scale font size (approximate)
             if (layer.type === 'text') {
                 layer.fontSize *= Math.min(widthRatio, heightRatio);
-                layer.fontSize = Math.max(10, layer.fontSize); // Prevent font from getting too small
-            }
-            // Image: Scale the item itself
-            else if (layer.type === 'image') {
+                layer.fontSize = Math.max(10, layer.fontSize); 
+            } else if (layer.type === 'image') {
                 layer.scale *= Math.min(widthRatio, heightRatio);
             }
         });
         
-        // Redraw background image to fit new size
-        if (state.currentTemplate) {
-            // Simply redrawing here works because the canvas dimensions are already updated.
-        } else {
-            // Clear canvas if no template is present
-            ctx.clearRect(0, 0, newWidth, newHeight);
-        }
-
-
-        // Re-run the visual sizing
         resizeCanvases();
         drawMeme();
     }
@@ -527,24 +654,21 @@
         if (state.isResizing) {
             state.isResizing = false;
             document.body.style.cursor = 'default';
-            // Final redraw and resize to ensure responsive fit
             resizeCanvases();
             drawMeme();
         }
     }
 
 
-    // --- CORE LOGIC FUNCTIONS (ADAPTED FOR VISUAL RESIZING) ---
+    // --- CORE LOGIC FUNCTIONS ---
 
     function resizeCanvases() {
         if (!canvas.width || !canvas.height) return;
         
         const previewElement = document.getElementById('preview');
-        const containerRect = previewElement.getBoundingClientRect();
-        const containerWidth = containerRect.width;
-        const containerHeight = containerRect.height;
+        const containerWidth = previewElement.clientWidth;
+        const containerHeight = previewElement.clientHeight;
         
-        // Max size for display is 95% of the container dimensions (minus padding/margins)
         const maxDisplayWidth = containerWidth * 0.95;
         const maxDisplayHeight = containerHeight * 0.95;
 
@@ -552,32 +676,22 @@
 
         let renderWidth, renderHeight;
         
-        // Calculate the maximum size the canvas can be displayed at responsively
-        if (maxDisplayWidth / maxDisplayHeight > canvasRatio) {
-            // Constrained by height
-            renderHeight = maxDisplayHeight;
-            renderWidth = maxDisplayHeight * canvasRatio;
-        } else {
-            // Constrained by width
-            renderWidth = maxDisplayWidth;
-            renderHeight = maxDisplayWidth / canvasRatio;
-        }
+        // Calculate the scale factor to fit the canvas within the viewport area
+        const scaleToFitWidth = maxDisplayWidth / canvas.width;
+        const scaleToFitHeight = maxDisplayHeight / canvas.height;
+        
+        const scaleFactor = Math.min(scaleToFitWidth, scaleToFitHeight);
 
-        // Apply responsive size (CSS scaling) to the containers
-        // This makes the canvas visible and correctly scaled in the wrapper
-        canvasContainer.style.width = `${canvas.width}px`;
-        canvasContainer.style.height = `${canvas.height}px`;
-        
-        // Apply responsive transform scaling for the view
-        const scaleFactor = Math.min(renderWidth / canvas.width, renderHeight / canvas.height);
-        
-        canvasContainer.style.transform = `scale(${scaleFactor})`;
-        
-        // Ensure drawing canvas matches meme canvas pixel size
+        // Apply raw pixel dimensions for the inner canvases
         drawingCanvas.width = canvas.width;
         drawingCanvas.height = canvas.height;
         drawingCanvas.style.width = `${canvas.width}px`;
         drawingCanvas.style.height = `${canvas.height}px`;
+
+        // Apply raw pixel dimensions and the CSS scale transform to the container for display
+        canvasContainer.style.width = `${canvas.width}px`;
+        canvasContainer.style.height = `${canvas.height}px`;
+        canvasContainer.style.transform = `scale(${scaleFactor})`;
 
         updateDrawingContext();
     }
@@ -599,7 +713,7 @@
             button.classList.remove('bg-[--color-primary-action]');
             button.classList.add('bg-red-500');
             state.selectedLayerIndex = -1; 
-            updateControlPanel();
+            updateControlPanel(true); 
             drawMeme(); 
         } else {
             drawingCanvas.classList.remove('active-drawing');
@@ -614,7 +728,6 @@
     function updateDrawingBrush(brush) { state.drawingBrush = brush; updateDrawingContext(); }
     function clearDrawingLayer() { drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); }
     
-    // Adapted to account for the CSS scaling applied to the canvas container
     function getEventPos(e) {
         const rect = canvasContainer.getBoundingClientRect();
         
@@ -641,75 +754,8 @@
         };
     }
 
-    function setupDrawingInteractions() {
-        drawingCanvas.addEventListener('mousedown', startDrawing);
-        drawingCanvas.addEventListener('mousemove', draw);
-        drawingCanvas.addEventListener('mouseup', stopDrawing);
-        drawingCanvas.addEventListener('mouseout', stopDrawing);
-        drawingCanvas.addEventListener('touchstart', startDrawing);
-        drawingCanvas.addEventListener('touchmove', draw);
-        drawingCanvas.addEventListener('touchend', stopDrawing);
-    }
-
-    function startDrawing(e) {
-        if (!state.drawingMode) return;
-        e.preventDefault();
-        state.isDrawing = true;
-        const pos = getEventPos(e);
-        state.lastX = pos.x;
-        state.lastY = pos.y;
-    }
-
-    function draw(e) {
-        if (!state.isDrawing || !state.drawingMode) return;
-        e.preventDefault();
-        const pos = getEventPos(e);
-        
-        drawingCtx.beginPath();
-        drawingCtx.moveTo(state.lastX, state.lastY);
-
-        if (state.drawingBrush === 'star') {
-            drawShape(drawingCtx, pos.x, pos.y, 10, 5, state.drawingSize/2);
-            drawingCtx.fill();
-        } else if (state.drawingBrush === 'sparks') {
-            for (let i = 0; i < 5; i++) {
-                const offsetX = (Math.random() - 0.5) * state.drawingSize;
-                const offsetY = (Math.random() - 0.5) * state.drawingSize;
-                drawingCtx.beginPath();
-                drawingCtx.arc(pos.x + offsetX, pos.y + offsetY, Math.random() * state.drawingSize/4, 0, Math.PI * 2);
-                drawingCtx.fillStyle = state.drawingColor;
-                drawingCtx.fill();
-            }
-        } else {
-            drawingCtx.lineTo(pos.x, pos.y);
-            drawingCtx.stroke();
-        }
-
-        state.lastX = pos.x;
-        state.lastY = pos.y;
-    }
-    
-    function drawShape(context, x, y, spikes, outerRadius, innerRadius) {
-        let rot = Math.PI / 2 * 3;
-        let cx = x;
-        let cy = y;
-        let step = Math.PI / spikes;
-
-        context.beginPath();
-        context.moveTo(cx, cy - outerRadius)
-        for (i = 0; i < spikes; i++) {
-            context.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
-            rot += step;
-            context.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
-            rot += step;
-        }
-        context.lineTo(cx, cy - outerRadius);
-        context.closePath();
-    }
-
-    function stopDrawing() { state.isDrawing = false; }
-
     function setupCanvasInteractions() {
+        // Use the canvas for drag/drop
         canvas.addEventListener('mousedown', handleStart);
         canvas.addEventListener('mousemove', handleMove);
         canvas.addEventListener('mouseup', handleEnd);
@@ -727,12 +773,19 @@
         state.dragStartX = pos.x;
         state.dragStartY = pos.y;
 
-        // Check if user clicked on any layer
-        state.selectedLayerIndex = state.layers.findIndex(layer => {
+        // Check if user clicked on any layer (iterate backwards to select top-most layer)
+        let selectedIndex = -1;
+        for (let i = state.layers.length - 1; i >= 0; i--) {
+            const layer = state.layers[i];
             const bbox = layer.bbox;
-            return pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
-                   pos.y >= bbox.y && pos.y <= bbox.y + bbox.h;
-        });
+            if (pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
+                pos.y >= bbox.y && pos.y <= bbox.y + bbox.h) {
+                selectedIndex = i;
+                break;
+            }
+        }
+        
+        state.selectedLayerIndex = selectedIndex;
 
         if (state.selectedLayerIndex !== -1) {
             state.isDragging = true;
@@ -741,7 +794,7 @@
              canvas.style.cursor = 'default';
         }
 
-        updateControlPanel();
+        updateControlPanel(true);
         drawMeme();
     }
 
@@ -775,11 +828,10 @@
             state.currentTemplate = img;
             state.isCustomBackground = false;
 
-            // Use the image's ratio but cap it to MAX_CANVAS_SIZE
+            // Maintain aspect ratio, max size constraint
             let targetW = canvas.width; 
             let targetH = targetW / ratio;
             
-            // If the initial height is too large, adjust both
             if (targetH > MAX_CANVAS_SIZE) {
                 targetH = MAX_CANVAS_SIZE;
                 targetW = targetH * ratio;
@@ -788,13 +840,23 @@
                 targetW = MAX_CANVAS_SIZE;
                 targetH = targetW / ratio;
             }
+            
+            const widthRatio = targetW / canvas.width;
+            const heightRatio = targetH / canvas.height;
 
             canvas.width = targetW;
             canvas.height = targetH;
             
-            // Redraw layers to fit new canvas size if necessary
-            // (Layers are repositioned/scaled when canvas.width/height is set, handled in resize function in previous version, 
-            // but for simplicity here we just ensure the view scale is correct)
+            // Layer scaling
+            state.layers.forEach(layer => {
+                layer.x *= widthRatio;
+                layer.y *= heightRatio;
+                if (layer.type === 'text') {
+                    layer.fontSize *= Math.min(widthRatio, heightRatio);
+                } else if (layer.type === 'image') {
+                    layer.scale *= Math.min(widthRatio, heightRatio);
+                }
+            });
 
             resizeCanvases();
             drawMeme();
@@ -811,7 +873,7 @@
     
     function loadCustomTemplateImage(url) {
         state.isCustomBackground = true;
-        renderTemplateSelector();
+        renderTemplateSelector(); // To visually deselect any template
 
         const img = new Image();
 
@@ -829,14 +891,12 @@
             targetW = img.width * scaleFactor;
             targetH = img.height * scaleFactor;
             
-            // Calculate ratios for layer scaling
             const widthRatio = targetW / oldWidth;
             const heightRatio = targetH / oldHeight;
 
             canvas.width = targetW;
             canvas.height = targetH;
             
-            // Reposition and rescale existing layers proportionally
             state.layers.forEach(layer => {
                 layer.x *= widthRatio;
                 layer.y *= heightRatio;
@@ -869,8 +929,10 @@
             const imageUrl = e.target.result;
             if (state.uploadMode === 'background') {
                 loadCustomTemplateImage(imageUrl);
+                closeSecondaryPanel();
             } else if (state.uploadMode === 'layer') {
                 addImageLayer(imageUrl, file.name);
+                closeSecondaryPanel();
             }
         };
         reader.readAsDataURL(file);
@@ -884,18 +946,21 @@
         if (selectedTemplate) {
             renderTemplateSelector();
             loadTemplateImage(selectedTemplate.url, selectedTemplate.ratio);
+            closeSecondaryPanel();
         }
     }
 
     function addPresetImageLayer(url, id) {
         if (state.stickerImages[id]) {
             createImageLayerObject(url, state.stickerImages[id]);
+            closeSecondaryPanel();
             drawMeme();
         } else {
             const img = new Image();
             img.onload = () => {
                 state.stickerImages[id] = img;
                 createImageLayerObject(url, img);
+                closeSecondaryPanel();
                 drawMeme();
             };
             img.onerror = () => {
@@ -926,7 +991,6 @@
             bbox: { x: 0, y: 0, w: 0, h: 0 }
         };
         
-        // Initial scaling logic based on current canvas size
         const MAX_LAYER_DIMENSION_RATIO = 0.5;
         if (newLayer.originalW > canvas.width * MAX_LAYER_DIMENSION_RATIO || newLayer.originalH > canvas.height * MAX_LAYER_DIMENSION_RATIO) {
             newLayer.scale = Math.min(
@@ -937,7 +1001,7 @@
         
         state.layers.push(newLayer);
         state.selectedLayerIndex = state.layers.length - 1;
-        updateControlPanel();
+        updateControlPanel(true);
     }
 
     function addTextLayer(content = 'New Text', x = canvas.width / 2, y = canvas.height / 2) {
@@ -949,7 +1013,7 @@
         };
         state.layers.push(newLayer);
         state.selectedLayerIndex = state.layers.length - 1;
-        updateControlPanel();
+        updateControlPanel(true);
         drawMeme();
     }
 
@@ -957,7 +1021,7 @@
         if (state.selectedLayerIndex < 0) return;
         state.layers.splice(state.selectedLayerIndex, 1);
         state.selectedLayerIndex = -1;
-        updateControlPanel();
+        updateControlPanel(true);
         drawMeme();
     }
     
@@ -1025,7 +1089,7 @@
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
             layer.fontId = id;
-            updateControlPanel();
+            updateControlPanel(true);
             drawMeme();
         }
     }
@@ -1042,6 +1106,7 @@
             const scaleY = layer.flipY ? -1 : 1;
             ctx.scale(scaleX, scaleY);
             let bbox = { x: 0, y: 0, w: 0, h: 0 };
+            
             if (layer.type === 'text') {
                 const fontConfig = fonts.find(f => f.id === layer.fontId);
                 const fontFamily = fontConfig ? `'${fontConfig.family}', ${fontConfig.fallback}` : 'sans-serif';
@@ -1075,6 +1140,7 @@
                 bbox.x = -bbox.w / 2;
                 bbox.y = -bbox.h / 2;
             }
+            
             // Update bounding box (relative to canvas origin)
             layer.bbox = {
                 x: layer.x - Math.abs(bbox.w * scaleX) / 2,
@@ -1124,7 +1190,7 @@
         container.innerHTML = fonts.map(f => `
             <button
                 onclick="selectFont('${f.id}')"
-                class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200"
+                class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200 ${state.selectedLayerIndex !== -1 && state.layers[state.selectedLayerIndex].type === 'text' && state.layers[state.selectedLayerIndex].fontId === f.id ? 'selected-item' : ''}"
                 id="font-${f.id}"
                 style="font-family: '${f.family}', ${f.fallback};"
             >
@@ -1133,41 +1199,51 @@
         `).join('');
     }
 
-    function updateControlPanel() {
+    // Pass 'forceUpdate' to ensure fields are populated when opening a panel
+    function updateControlPanel(forceUpdate = false) {
         const index = state.selectedLayerIndex;
         const layer = state.layers[index];
-        const textControls = document.getElementById('textControls');
-        const imageControls = document.getElementById('imageControls');
         const commonControls = document.getElementById('commonControls');
         const transformationControls = document.getElementById('transformationControls');
         const layerTypeDisplay = document.getElementById('currentLayerTypeDisplay');
-        textControls.classList.add('hidden');
-        imageControls.classList.add('hidden');
+        const textControls = document.getElementById('textControls');
+        const imageControls = document.getElementById('imageControls');
+        
+        // Hide all contextual/shared controls initially
         commonControls.classList.add('hidden');
         transformationControls.classList.add('hidden');
         layerTypeDisplay.textContent = 'None';
+        
+        // Hide specific controls unless they are active
+        textControls.style.display = 'none';
+        imageControls.style.display = 'none';
+
         if (index >= 0 && layer) {
+            // SHOW common/transformation controls for selected layer
             commonControls.classList.remove('hidden');
             transformationControls.classList.remove('hidden');
+            layerTypeDisplay.textContent = `${layer.type.charAt(0).toUpperCase() + layer.type.slice(1)} Layer ${index + 1}`;
+            
+            // Update transformation values
             document.getElementById('rotationSlider').value = layer.rotation;
             document.getElementById('rotationValue').textContent = `${layer.rotation}°`;
             document.getElementById('flipXBtn').classList.toggle('selected-item', layer.flipX);
             document.getElementById('flipYBtn').classList.toggle('selected-item', layer.flipY);
+            
+            // Text Layer Specific
             if (layer.type === 'text') {
-                layerTypeDisplay.textContent = `Text Layer ${index + 1}`;
-                textControls.classList.remove('hidden');
+                textControls.style.display = 'block';
                 document.getElementById('currentTextContent').value = layer.content;
                 document.getElementById('boldBtn').classList.toggle('selected-item', layer.isBold);
                 document.getElementById('italicBtn').classList.toggle('selected-item', layer.isItalic);
                 document.getElementById('fontSizeSelect').value = layer.fontSize.toString();
                 document.getElementById('textColorInput').value = layer.color || '#FFFFFF';
-                document.querySelectorAll('#fontSelector button').forEach(btn => {
-                    btn.classList.remove('selected-item');
-                    if (`font-${layer.fontId}` === btn.id) { btn.classList.add('selected-item'); }
-                });
-            } else if (layer.type === 'image') {
-                layerTypeDisplay.textContent = `Image/Sticker Layer ${index + 1}`;
-                imageControls.classList.remove('hidden');
+                renderFontSelector(); // Re-render to highlight the selected font
+            } 
+            
+            // Image Layer Specific
+            else if (layer.type === 'image') {
+                imageControls.style.display = 'block';
                 document.getElementById('scaleSlider').value = layer.scale;
                 document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
             }
