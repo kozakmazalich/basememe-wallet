@@ -57,17 +57,27 @@
         }
 
         /* Canvas container setup */
+        /* This container is the wrapper that holds both canvas elements and the resize handle */
         .canvas-container {
             position: relative;
+            /* Ensures the canvas's physical size is handled by this container */
+            display: inline-block; 
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            /* Reset to default background here, not on the canvas itself */
+            background-color: var(--color-white); 
         }
 
-        /* Canvas overlay for drawing/interaction */
+        /* Canvas element itself */
+        #memeCanvas {
+            display: block;
+            touch-action: none; /* Crucial for preventing mobile scroll when interacting with canvas */
+        }
+
+        /* Drawing/Interaction Canvas overlay */
         #drawingCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
             z-index: 10;
             pointer-events: none;
         }
@@ -75,15 +85,32 @@
             pointer-events: auto;
             cursor: crosshair;
         }
+
+        /* New: Canvas Resize Handle */
+        #resizeHandle {
+            position: absolute;
+            bottom: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background-color: var(--color-accent);
+            border: 3px solid var(--color-white);
+            border-radius: 50%;
+            cursor: nwse-resize;
+            z-index: 20;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            touch-action: none;
+        }
         
-        /* Mobile Layout: Canvas first, then Controls, both scroll */
+        /* Mobile Layout: Canvas first, then Controls */
         #preview-wrapper {
             width: 100%;
-            /* min-height: 50vh; <- Removed height limit for flexibility */
             display: flex;
             justify-content: center;
             align-items: center;
             order: 1; /* Canvas section appears first */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
         }
         #controls {
             width: 100%;
@@ -94,11 +121,10 @@
         @media (min-width: 1024px) {
             body { 
                 height: 100vh; 
-                overflow: hidden; /* Prevent body scroll */
+                overflow: hidden; 
                 display: flex; 
                 flex-direction: row; 
             }
-            /* Controls sidebar: Fixed on left, scrolls independently */
             #controls {
                 position: fixed; 
                 top: 0; 
@@ -108,21 +134,21 @@
                 overflow-y: auto; 
                 z-index: 20;
                 order: 1;
-                padding-bottom: 6rem; /* Space for sticky buttons */
+                padding-bottom: 6rem; 
             }
-            /* Preview area: Takes remaining space, centers canvas */
             #preview-wrapper {
                 margin-left: 33.3333%; 
                 width: 66.6667%; 
-                height: 100vh; /* Use full height */
+                height: 100vh; 
                 display: flex; 
                 flex-direction: column; 
                 justify-content: center;
                 align-items: center;
-                overflow-y: auto; /* Scroll if canvas overflows view */
+                overflow-y: auto; 
                 order: 2;
+                /* Ensures canvas is centered visually */
+                padding: 1rem; 
             }
-            /* Sticky Footer for Buttons */
             .sticky-footer {
                 position: sticky; 
                 bottom: 0; 
@@ -142,20 +168,7 @@
     <p class="text-sm text-gray-200" id="baseAppStatus">BaseApp Status: Connecting...</p>
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Canvas Size</h2>
-        <div class="flex flex-col space-y-2 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
-            <div class="flex space-x-4">
-                <input type="number" id="canvasWidthInput" value="600" min="100" max="1200" class="w-1/2 p-2 rounded text-black bg-white" placeholder="Width" onchange="updateCanvasDimensions()">
-                <input type="number" id="canvasHeightInput" value="600" min="100" max="1200" class="w-1/2 p-2 rounded text-black bg-white" placeholder="Height" onchange="updateCanvasDimensions()">
-            </div>
-            <p class="text-xs text-gray-200">Set the base resolution. Layers will automatically scale proportionally.</p>
-        </div>
-    </section>
-
-    <hr class="border-[--color-accent]">
-
-    <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Upload Images</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Upload Images</h2>
         <div class="flex flex-col space-y-2">
             <input type="file" id="imageUploadInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
             <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'background';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
@@ -171,17 +184,17 @@
     <hr class="border-[--color-accent]">
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Template Background</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Template Background</h2>
         <div id="templateSelector" class="grid grid-cols-3 gap-2"></div>
     </section>
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Add Sticker Item</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Add Sticker Item</h2>
         <div id="stickerSelector" class="grid grid-cols-3 gap-2"></div>
     </section>
 
     <section>
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Drawing Tool (Paint)</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Drawing Tool (Paint)</h2>
         <div id="drawingControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
             <button id="drawingModeToggle" onclick="toggleDrawingMode()" class="control-button w-full py-2 font-bold rounded-lg bg-[--color-primary-action] text-white">
                 🔴 Toggle Drawing Mode (OFF)
@@ -219,7 +232,7 @@
     <hr class="border-[--color-accent]">
 
     <section class="flex-grow pt-4">
-        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">6. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
         <p class="text-sm text-gray-200 mb-2">Tap/click layer on image to edit. **(Must turn OFF Drawing Mode)**</p>
         <div id="contextualControls" class="space-y-4">
 
@@ -303,9 +316,10 @@
 
 <div id="preview-wrapper" class="w-full">
     <div id="preview" class="w-full flex items-center justify-center p-4 lg:p-8 z-20 relative min-h-[300px]">
-        <div class="bg-[--color-accent] p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
-            <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-[--color-accent] bg-[--color-accent] shadow-xl touch-none"></canvas>
-            <canvas id="drawingCanvas" class="rounded-lg touch-none"></canvas>
+        <div id="canvas-container" class="canvas-container rounded-xl shadow-2xl">
+            <canvas id="memeCanvas" class="touch-none"></canvas>
+            <canvas id="drawingCanvas" class="touch-none"></canvas>
+            <div id="resizeHandle"></div>
         </div>
     </div>
 </div>
@@ -359,10 +373,10 @@
     const ctx = canvas.getContext('2d');
     const drawingCanvas = document.getElementById('drawingCanvas');
     const drawingCtx = drawingCanvas.getContext('2d');
-    
-    // Default/Initial Canvas dimensions (user changeable)
-    let DEFAULT_CANVAS_WIDTH = 600;
-    let DEFAULT_CANVAS_HEIGHT = 600;
+    const canvasContainer = document.getElementById('canvas-container');
+
+    const MIN_CANVAS_SIZE = 100; // Minimum size for width and height
+    const MAX_CANVAS_SIZE = 1200; // Maximum size for width and height (for performance)
 
     let state = {
         selectedTemplateId: templates[0].id,
@@ -370,6 +384,7 @@
         layers: [],
         selectedLayerIndex: -1,
         isDragging: false,
+        isResizing: false, // New state for canvas resizing
         dragStartX: 0,
         dragStartY: 0,
         stickerImages: {},
@@ -388,25 +403,23 @@
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
-        BaseAccountSDK.connect(); // 1. Auto-connect to BaseApp account
+        BaseAccountSDK.connect(); 
         
-        // Initialize canvas dimensions based on current inputs
-        canvas.width = DEFAULT_CANVAS_WIDTH;
-        canvas.height = DEFAULT_CANVAS_HEIGHT;
+        // Initial canvas dimensions
+        canvas.width = 600;
+        canvas.height = 600;
 
         renderTemplateSelector();
         renderStickerSelector();
         renderFontSelector();
+        
         loadTemplateImage(initialTemplate.url, initialTemplate.ratio);
 
-        // Initial text layers are only added if we don't load a template that overwrites them
+        // Initial text layers are added only if we load the template successfully
         addTextLayer('TOP TEXT', canvas.width / 2, 0.1 * canvas.height);
         addTextLayer('BOTTOM TEXT', canvas.width / 2, 0.9 * canvas.height);
 
-        document.getElementById('canvasWidthInput').value = DEFAULT_CANVAS_WIDTH;
-        document.getElementById('canvasHeightInput').value = DEFAULT_CANVAS_HEIGHT;
-        
-        // Initial drawing controls setup (rest of controls update dynamically)
+        // Initial drawing controls setup 
         document.getElementById('drawColorInput').value = state.drawingColor;
         document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
         document.getElementById('drawBrushSelect').value = state.drawingBrush;
@@ -420,58 +433,108 @@
 
         setupCanvasInteractions();
         setupDrawingInteractions();
+        setupCanvasResizingInteractions(); // NEW: Setup drag-to-resize
         window.addEventListener('resize', resizeCanvases);
     });
     // --- End Initialization ---
 
 
-    // --- CANVAS SIZE CONTROL ---
+    // --- CANVAS RESIZING INTERACTIONS (NEW) ---
 
-    function updateCanvasDimensions() {
-        const newWidth = parseInt(document.getElementById('canvasWidthInput').value) || DEFAULT_CANVAS_WIDTH;
-        const newHeight = parseInt(document.getElementById('canvasHeightInput').value) || DEFAULT_CANVAS_HEIGHT;
+    function setupCanvasResizingInteractions() {
+        const handle = document.getElementById('resizeHandle');
+        
+        handle.addEventListener('mousedown', startResizing);
+        window.addEventListener('mousemove', resize);
+        window.addEventListener('mouseup', stopResizing);
 
-        if (isNaN(newWidth) || newWidth < 100 || isNaN(newHeight) || newHeight < 100) {
-            alert("Invalid dimensions. Please enter values between 100 and 1200.");
-            return;
+        handle.addEventListener('touchstart', startResizing);
+        window.addEventListener('touchmove', resize);
+        window.addEventListener('touchend', stopResizing);
+    }
+
+    function startResizing(e) {
+        e.preventDefault();
+        state.isResizing = true;
+        
+        // Temporarily change the cursor for the whole body
+        document.body.style.cursor = 'nwse-resize'; 
+    }
+
+    function resize(e) {
+        if (!state.isResizing) return;
+        e.preventDefault();
+
+        // Get the position relative to the preview wrapper
+        const previewRect = document.getElementById('preview').getBoundingClientRect();
+        
+        let clientX, clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
         }
 
-        // Calculate scaling factor for layers
-        const widthRatio = newWidth / canvas.width;
-        const heightRatio = newHeight / canvas.height;
+        // Calculate position relative to the canvas container's top-left corner
+        const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, clientX - canvasContainer.getBoundingClientRect().left));
+        const newHeight = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, clientY - canvasContainer.getBoundingClientRect().top));
 
-        // Apply new canvas dimensions
+        // Get old dimensions for scaling layers
+        const oldWidth = canvas.width;
+        const oldHeight = canvas.height;
+
+        // Apply new raw pixel dimensions to the canvas
         canvas.width = newWidth;
         canvas.height = newHeight;
-        DEFAULT_CANVAS_WIDTH = newWidth;
-        DEFAULT_CANVAS_HEIGHT = newHeight;
 
-        // Reposition and rescale existing layers proportionally
+        // Calculate scaling factors
+        const widthRatio = newWidth / oldWidth;
+        const heightRatio = newHeight / oldHeight;
+        
+        // Reposition and rescale layers
         state.layers.forEach(layer => {
             layer.x *= widthRatio;
             layer.y *= heightRatio;
             
-            // For text, just reposition
-            if (layer.type === 'image') {
-                // Adjust image scale based on average change, or more complex resizing might be needed
-                // For simplicity, we just reposition here, keeping scale relative to the new canvas size
+            // Text: Scale font size (approximate)
+            if (layer.type === 'text') {
+                layer.fontSize *= Math.min(widthRatio, heightRatio);
+                layer.fontSize = Math.max(10, layer.fontSize); // Prevent font from getting too small
+            }
+            // Image: Scale the item itself
+            else if (layer.type === 'image') {
+                layer.scale *= Math.min(widthRatio, heightRatio);
             }
         });
-
-        // If using a template, redraw the template to fit the new size
-        if (state.currentTemplate && !state.isCustomBackground) {
-            loadTemplateImage(templates.find(t => t.id === state.selectedTemplateId).url, newWidth / newHeight);
-        } else if (state.currentTemplate && state.isCustomBackground) {
-            // If custom image, we have to reload/rescale the background to the new size
-            loadCustomTemplateImage(state.currentTemplate.src, true); // True forces it to scale to new canvas size
+        
+        // Redraw background image to fit new size
+        if (state.currentTemplate) {
+            // Simply redrawing here works because the canvas dimensions are already updated.
         } else {
+            // Clear canvas if no template is present
+            ctx.clearRect(0, 0, newWidth, newHeight);
+        }
+
+
+        // Re-run the visual sizing
+        resizeCanvases();
+        drawMeme();
+    }
+
+    function stopResizing() {
+        if (state.isResizing) {
+            state.isResizing = false;
+            document.body.style.cursor = 'default';
+            // Final redraw and resize to ensure responsive fit
             resizeCanvases();
             drawMeme();
         }
     }
 
 
-    // --- CORE LOGIC FUNCTIONS (Mostly same as previous version, but using DEFAULT_CANVAS_WIDTH/HEIGHT) ---
+    // --- CORE LOGIC FUNCTIONS (ADAPTED FOR VISUAL RESIZING) ---
 
     function resizeCanvases() {
         if (!canvas.width || !canvas.height) return;
@@ -480,32 +543,41 @@
         const containerRect = previewElement.getBoundingClientRect();
         const containerWidth = containerRect.width;
         const containerHeight = containerRect.height;
+        
+        // Max size for display is 95% of the container dimensions (minus padding/margins)
+        const maxDisplayWidth = containerWidth * 0.95;
+        const maxDisplayHeight = containerHeight * 0.95;
+
         const canvasRatio = canvas.width / canvas.height;
 
         let renderWidth, renderHeight;
         
-        // Max size for display is 95% of the container dimensions
-        const maxDisplayWidth = containerWidth * 0.95;
-        const maxDisplayHeight = containerHeight * 0.95;
+        // Calculate the maximum size the canvas can be displayed at responsively
+        if (maxDisplayWidth / maxDisplayHeight > canvasRatio) {
+            // Constrained by height
+            renderHeight = maxDisplayHeight;
+            renderWidth = maxDisplayHeight * canvasRatio;
+        } else {
+            // Constrained by width
+            renderWidth = maxDisplayWidth;
+            renderHeight = maxDisplayWidth / canvasRatio;
+        }
 
-        // Calculate scaling to fit within the preview wrapper
-        const scaleToFitWidth = maxDisplayWidth / canvas.width;
-        const scaleToFitHeight = maxDisplayHeight / canvas.height;
+        // Apply responsive size (CSS scaling) to the containers
+        // This makes the canvas visible and correctly scaled in the wrapper
+        canvasContainer.style.width = `${canvas.width}px`;
+        canvasContainer.style.height = `${canvas.height}px`;
         
-        const scaleFactor = Math.min(scaleToFitWidth, scaleToFitHeight);
-
-        renderWidth = canvas.width * scaleFactor;
-        renderHeight = canvas.height * scaleFactor;
+        // Apply responsive transform scaling for the view
+        const scaleFactor = Math.min(renderWidth / canvas.width, renderHeight / canvas.height);
         
-        // Apply responsive size to the displayed elements (CSS scaling)
-        canvas.style.width = `${renderWidth}px`;
-        canvas.style.height = `${renderHeight}px`;
-        drawingCanvas.style.width = `${renderWidth}px`;
-        drawingCanvas.style.height = `${renderHeight}px`;
-
+        canvasContainer.style.transform = `scale(${scaleFactor})`;
+        
         // Ensure drawing canvas matches meme canvas pixel size
         drawingCanvas.width = canvas.width;
         drawingCanvas.height = canvas.height;
+        drawingCanvas.style.width = `${canvas.width}px`;
+        drawingCanvas.style.height = `${canvas.height}px`;
 
         updateDrawingContext();
     }
@@ -542,8 +614,10 @@
     function updateDrawingBrush(brush) { state.drawingBrush = brush; updateDrawingContext(); }
     function clearDrawingLayer() { drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); }
     
+    // Adapted to account for the CSS scaling applied to the canvas container
     function getEventPos(e) {
-        const rect = canvas.getBoundingClientRect();
+        const rect = canvasContainer.getBoundingClientRect();
+        
         let clientX, clientY;
         if (e.touches && e.touches.length > 0) {
             clientX = e.touches[0].clientX;
@@ -553,12 +627,17 @@
             clientY = e.clientY;
         }
 
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+        // Calculate the scale factor applied by CSS Transform
+        const currentScale = rect.width / canvas.width;
         
+        // Position relative to the scaled container
+        const scaledX = clientX - rect.left;
+        const scaledY = clientY - rect.top;
+        
+        // Position relative to the actual canvas pixels
         return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
+            x: scaledX / currentScale,
+            y: scaledY / currentScale
         };
     }
 
@@ -642,12 +721,13 @@
     }
     
     function handleStart(e) {
-        if (state.drawingMode) return;
+        if (state.drawingMode || state.isResizing) return;
         e.preventDefault();
         const pos = getEventPos(e);
         state.dragStartX = pos.x;
         state.dragStartY = pos.y;
 
+        // Check if user clicked on any layer
         state.selectedLayerIndex = state.layers.findIndex(layer => {
             const bbox = layer.bbox;
             return pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
@@ -666,7 +746,7 @@
     }
 
     function handleMove(e) {
-        if (!state.isDragging || state.selectedLayerIndex === -1) return;
+        if (!state.isDragging || state.selectedLayerIndex === -1 || state.isResizing) return;
         e.preventDefault();
         const pos = getEventPos(e);
         const dx = pos.x - state.dragStartX;
@@ -695,12 +775,26 @@
             state.currentTemplate = img;
             state.isCustomBackground = false;
 
-            // Automatically set canvas size to the template ratio based on current DEFAULT_WIDTH
-            let targetW = canvas.width;
-            let targetH = canvas.width / ratio;
+            // Use the image's ratio but cap it to MAX_CANVAS_SIZE
+            let targetW = canvas.width; 
+            let targetH = targetW / ratio;
+            
+            // If the initial height is too large, adjust both
+            if (targetH > MAX_CANVAS_SIZE) {
+                targetH = MAX_CANVAS_SIZE;
+                targetW = targetH * ratio;
+            }
+            if (targetW > MAX_CANVAS_SIZE) {
+                targetW = MAX_CANVAS_SIZE;
+                targetH = targetW / ratio;
+            }
 
+            canvas.width = targetW;
             canvas.height = targetH;
-            document.getElementById('canvasHeightInput').value = Math.round(targetH);
+            
+            // Redraw layers to fit new canvas size if necessary
+            // (Layers are repositioned/scaled when canvas.width/height is set, handled in resize function in previous version, 
+            // but for simplicity here we just ensure the view scale is correct)
 
             resizeCanvases();
             drawMeme();
@@ -715,36 +809,43 @@
         img.src = url;
     }
     
-    function loadCustomTemplateImage(url, useCurrentCanvasSize = false) {
+    function loadCustomTemplateImage(url) {
         state.isCustomBackground = true;
         renderTemplateSelector();
 
         const img = new Image();
 
         img.onload = () => {
+            const oldWidth = canvas.width;
+            const oldHeight = canvas.height;
             state.currentTemplate = img;
 
-            // Option 1: Scale background image to match current canvas size
-            if (useCurrentCanvasSize) {
-                // Canvas dimensions remain as set by the user/template
-            } else {
-                // Option 2 (default for uploaded backgrounds): Match canvas size to image ratio
-                const ratio = img.width / img.height;
-                let targetW = canvas.width;
-                let targetH = targetW / ratio;
-                
-                // If the new height is too tall, rescale the width
-                const MAX_HEIGHT_CAP = 1200; 
-                if (targetH > MAX_HEIGHT_CAP) {
-                     targetH = MAX_HEIGHT_CAP;
-                     targetW = targetH * ratio;
+            // Match canvas size to image ratio, constrained by MAX_CANVAS_SIZE
+            let targetW = img.width;
+            let targetH = img.height;
+            
+            const scaleFactor = Math.min(MAX_CANVAS_SIZE / img.width, MAX_CANVAS_SIZE / img.height, 1);
+            
+            targetW = img.width * scaleFactor;
+            targetH = img.height * scaleFactor;
+            
+            // Calculate ratios for layer scaling
+            const widthRatio = targetW / oldWidth;
+            const heightRatio = targetH / oldHeight;
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+            
+            // Reposition and rescale existing layers proportionally
+            state.layers.forEach(layer => {
+                layer.x *= widthRatio;
+                layer.y *= heightRatio;
+                if (layer.type === 'text') {
+                    layer.fontSize *= Math.min(widthRatio, heightRatio);
+                } else if (layer.type === 'image') {
+                    layer.scale *= Math.min(widthRatio, heightRatio);
                 }
-                
-                canvas.width = targetW;
-                canvas.height = targetH;
-                document.getElementById('canvasWidthInput').value = Math.round(targetW);
-                document.getElementById('canvasHeightInput').value = Math.round(targetH);
-            }
+            });
             
             resizeCanvases();
             drawMeme();
@@ -826,12 +927,12 @@
         };
         
         // Initial scaling logic based on current canvas size
-        const MAX_LAYER_DIMENSION_RATIO = 0.8;
+        const MAX_LAYER_DIMENSION_RATIO = 0.5;
         if (newLayer.originalW > canvas.width * MAX_LAYER_DIMENSION_RATIO || newLayer.originalH > canvas.height * MAX_LAYER_DIMENSION_RATIO) {
             newLayer.scale = Math.min(
                 (canvas.width * MAX_LAYER_DIMENSION_RATIO) / newLayer.originalW,
                 (canvas.height * MAX_LAYER_DIMENSION_RATIO) / newLayer.originalH
-            ) * MAX_LAYER_DIMENSION_RATIO;
+            );
         }
         
         state.layers.push(newLayer);
@@ -930,9 +1031,9 @@
     }
     
     function drawMeme() {
-        if (!state.currentTemplate) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(state.currentTemplate, 0, 0, canvas.width, canvas.height);
+        if (!state.currentTemplate) { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        else { ctx.drawImage(state.currentTemplate, 0, 0, canvas.width, canvas.height); }
+        
         state.layers.forEach((layer, index) => {
             ctx.save();
             ctx.translate(layer.x, layer.y);
@@ -952,16 +1053,16 @@
                 ctx.strokeStyle = '#000000';
                 ctx.lineWidth = layer.fontSize / 15;
                 const lines = layer.content.split('\n');
-                let totalHeight = lines.length * layer.fontSize * 1.2;
                 let maxLineWidth = 0;
+                let lineSpacing = layer.fontSize * 1.2;
                 lines.forEach((line, i) => {
-                    const yOffset = (i - (lines.length - 1) / 2) * layer.fontSize * 1.2;
+                    const yOffset = (i - (lines.length - 1) / 2) * lineSpacing;
                     ctx.strokeText(line, 0, yOffset); 
                     ctx.fillText(line, 0, yOffset);
                     maxLineWidth = Math.max(maxLineWidth, ctx.measureText(line).width);
                 });
                 bbox.w = maxLineWidth + ctx.lineWidth * 2;
-                bbox.h = totalHeight + ctx.lineWidth * 2;
+                bbox.h = lines.length * lineSpacing + ctx.lineWidth * 2;
                 bbox.x = -bbox.w / 2;
                 bbox.y = -bbox.h / 2;
             } else if (layer.type === 'image') {
@@ -974,6 +1075,7 @@
                 bbox.x = -bbox.w / 2;
                 bbox.y = -bbox.h / 2;
             }
+            // Update bounding box (relative to canvas origin)
             layer.bbox = {
                 x: layer.x - Math.abs(bbox.w * scaleX) / 2,
                 y: layer.y - Math.abs(bbox.h * scaleY) / 2,
