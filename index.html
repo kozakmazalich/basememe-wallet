@@ -17,10 +17,11 @@
             --color-white: #FFFFFF;
             --color-black: #000000;
             --color-selection-red: #ff3838; /* Layer Resizing Handle */
-            --color-section-bg: #3c3852; /* Added for section backgrounds */
+            --color-section-bg: #3c3852; 
         }
 
         /* --- LOCAL FONT LOADING --- */
+        /* Используйте 'AppGlobalFont-Fallback' как резервный шрифт, если основной не загружен */
         @font-face { font-family: 'AppGlobalFont'; src: url('./fonts/font4.otf') format('opentype'); font-weight: normal; font-style: normal; }
 
         /* Base styles */
@@ -501,10 +502,9 @@
 
     const fonts = [
         { id: 'f4', name: 'Global', family: 'AppGlobalFont', fallback: 'sans-serif' },
-        // Fallback definitions for non-existent local fonts:
-        { id: 'f1', name: 'Local Font 1', family: 'Arial', fallback: 'sans-serif' },
-        { id: 'f2', name: 'Local Font 2', family: 'Georgia', fallback: 'serif' },
-        { id: 'f3', name: 'Local Font 3', family: 'Courier New', fallback: 'monospace' }
+        { id: 'f1', name: 'Arial', family: 'Arial', fallback: 'sans-serif' },
+        { id: 'f2', name: 'Georgia', family: 'Georgia', fallback: 'serif' },
+        { id: 'f3', name: 'Courier', family: 'Courier New', fallback: 'monospace' }
     ];
 
     const canvas = document.getElementById('memeCanvas');
@@ -521,15 +521,15 @@
 
     let state = {
         selectedTemplateId: templates[0].id,
-        currentTemplate: null,
+        currentTemplate: null, // Изображение фона
         layers: [],
         selectedLayerIndex: -1,
         isDragging: false,
-        isResizing: false, // For Canvas resizing (blue handle)
-        isLayerResizing: false, // For Image layer resizing (red handle)
+        isResizing: false, 
+        isLayerResizing: false,
         dragStartX: 0,
         dragStartY: 0,
-        stickerImages: {},
+        stickerImages: {}, // Кэш для стикеров
         isDrawing: false,
         drawingMode: false,
         drawingColor: '#547cf4',
@@ -553,23 +553,25 @@
         renderStickerSelector();
         renderFontSelector();
         
-        // Initial setup
-        loadTemplateImage(initialTemplate.url, initialTemplate.defaultW, initialTemplate.defaultH);
+        // **Загрузка начального фона и добавление текстовых слоев происходит здесь**
+        loadTemplateImage(initialTemplate.url, initialTemplate.defaultW, initialTemplate.defaultH).then(() => {
+             // После загрузки фона добавляем текст (это синхронные операции)
+             addTextLayer('TOP TEXT', canvas.width / 2, 0.1 * canvas.height);
+             addTextLayer('BOTTOM TEXT', canvas.width / 2, 0.9 * canvas.height);
+             drawMeme(); // Первая отрисовка после инициализации
+        });
 
-        addTextLayer('TOP TEXT', canvas.width / 2, 0.1 * canvas.height);
-        addTextLayer('BOTTOM TEXT', canvas.width / 2, 0.9 * canvas.height);
 
         document.getElementById('drawColorInput').value = state.drawingColor;
         document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
         document.getElementById('drawBrushSelect').value = state.drawingBrush;
 
-        drawMeme(); // Draw the initial canvas
         resizeCanvases(); // Scale the container to fit screen
 
-        setupCanvasInteractions(); // Handle layer dragging and selection
-        setupDrawingInteractions(); // Handle drawing on the overlay
-        setupCanvasResizingInteractions(); // Handle blue handle resize
-        setupLayerResizingInteractions(); // Handle red handle resize
+        setupCanvasInteractions(); 
+        setupDrawingInteractions(); 
+        setupCanvasResizingInteractions(); 
+        setupLayerResizingInteractions(); 
         window.addEventListener('resize', resizeCanvases);
     });
     // --- End Initialization ---
@@ -578,7 +580,6 @@
     function toggleMainDrawer() {
         const drawer = document.getElementById('app-drawer-container');
         drawer.classList.toggle('active');
-        // Close secondary panels when main drawer is toggled
         document.querySelectorAll('.secondary-panel').forEach(panel => { panel.classList.remove('active'); });
     }
     function openSecondaryPanel(panelId) {
@@ -649,11 +650,8 @@
             clientY = e.clientY;
         }
 
-        // Calculate current CSS scale factor to convert mouse movement (screen pixels) 
-        // back to raw canvas pixels
         const currentScale = containerRect.width / canvas.width; 
         
-        // Calculate new raw pixel dimensions
         const newWidth = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientX - containerRect.left) / currentScale));
         const newHeight = Math.max(MIN_CANVAS_SIZE, Math.min(MAX_CANVAS_SIZE, (clientY - containerRect.top) / currentScale));
         
@@ -662,14 +660,12 @@
 
         if (Math.abs(newWidth - oldWidth) < 1 && Math.abs(newHeight - oldHeight) < 1) return;
 
-        // Apply new dimensions
         canvas.width = newWidth;
         canvas.height = newHeight;
 
         const widthRatio = newWidth / oldWidth;
         const heightRatio = newHeight / oldHeight;
         
-        // Reposition and rescale layers proportionally
         state.layers.forEach(layer => {
             layer.x *= widthRatio;
             layer.y *= heightRatio;
@@ -683,7 +679,7 @@
             }
         });
         
-        resizeCanvases(); // Updates CSS scale
+        resizeCanvases(); 
         drawMeme();
     }
 
@@ -711,7 +707,7 @@
     function startLayerResizing(e) {
         if (e.target.id === 'layerResizeHandle' && state.selectedLayerIndex !== -1) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent event bubbling up to canvas click
+            e.stopPropagation(); 
             state.isLayerResizing = true;
             document.body.style.cursor = 'nwse-resize';
         }
@@ -725,17 +721,15 @@
         const layer = state.layers[state.selectedLayerIndex];
         if (layer.type !== 'image') return;
         
-        const pos = getEventPos(e); // Mouse position in canvas pixels
-        
-        // --- IMPROVED RESIZE LOGIC ---
+        const pos = getEventPos(e); 
         
         // 1. Calculate vector from the layer center (pivot point) to the mouse position
         let dx = pos.x - layer.x;
         let dy = pos.y - layer.y;
 
-        // If rotated, rotate the click vector *back* by the layer's rotation angle
+        // 2. Un-rotate the click vector
         if (layer.rotation !== 0) {
-             const angle = -layer.rotation * Math.PI / 180; // Negative angle to un-rotate
+             const angle = -layer.rotation * Math.PI / 180; 
              const cos = Math.cos(angle);
              const sin = Math.sin(angle);
              const tempDx = dx;
@@ -743,22 +737,16 @@
              dy = tempDx * sin + dy * cos;
         }
 
-        // 2. Calculate new distance based on a single axis (e.g., width) for aspect ratio scaling
-        // We use the greater of the projected distance from center to find the overall scale factor
+        // 3. Determine new scale based on distance along the un-rotated object axes
         const halfOriginalW = layer.originalW / 2;
         const halfOriginalH = layer.originalH / 2;
         
-        let newScale;
-        
-        // Calculate the scale factor needed for the object's width to reach the mouse's projected X position
-        // and the scale factor for the height to reach the mouse's projected Y position.
-        // We use the largest factor to maintain aspect ratio and ensure the cursor is "on" the corner.
+        // Use the larger scale factor to maintain aspect ratio and ensure the cursor is "on" the corner.
         const scaleX = Math.abs(dx / halfOriginalW);
         const scaleY = Math.abs(dy / halfOriginalH);
 
-        newScale = Math.max(scaleX, scaleY);
+        const newScale = Math.max(scaleX, scaleY);
         
-        // Ensure scale is within bounds
         layer.scale = Math.max(MIN_LAYER_SCALE, newScale);
         
         // Update slider and redraw
@@ -794,13 +782,11 @@
         
         const scaleFactor = Math.min(scaleToFitWidth, scaleToFitHeight);
 
-        // Set raw pixel dimensions for inner canvases
         drawingCanvas.width = canvas.width;
         drawingCanvas.height = canvas.height;
         drawingCanvas.style.width = `${canvas.width}px`;
         drawingCanvas.style.height = `${canvas.height}px`;
 
-        // Apply raw pixel dimensions and the CSS scale transform to the container for display
         canvasContainer.style.width = `${canvas.width}px`;
         canvasContainer.style.height = `${canvas.height}px`;
         canvasContainer.style.transform = `scale(${scaleFactor})`;
@@ -822,10 +808,10 @@
             let cornerX = layer.x + renderW / 2;
             let cornerY = layer.y + renderH / 2;
             
-            // Rotate the corner point (cornerX, cornerY) around the center (layer.x, layer.y)
             let finalX = cornerX;
             let finalY = cornerY;
             
+            // Rotate the corner point around the layer center
             if (layer.rotation !== 0) {
                  const angle = layer.rotation * Math.PI / 180;
                  const cos = Math.cos(angle);
@@ -838,8 +824,6 @@
                  finalY = layer.y + (tx * sin + ty * cos);
             }
 
-            // Apply position to the handle element (relative to canvas-container)
-            // The CSS 'transform: translate(-50%, -50%)' centers the handle on finalX/finalY
             handle.style.left = `${finalX}px`; 
             handle.style.top = `${finalY}px`; 
             handle.style.display = 'block';
@@ -929,7 +913,6 @@
     }
     
     function handleStart(e) {
-        // Prevent layer drag if already resizing canvas or layer
         if (state.isResizing || state.isLayerResizing || state.drawingMode) return;
         
         e.preventDefault();
@@ -937,12 +920,10 @@
         state.dragStartX = pos.x;
         state.dragStartY = pos.y;
 
-        // Check if user clicked on any layer (iterate backwards to select top-most layer)
         let selectedIndex = -1;
         for (let i = state.layers.length - 1; i >= 0; i--) {
             const layer = state.layers[i];
             const bbox = layer.bbox;
-            // Simple AABB check against the layer's stored axis-aligned bounding box (AABB)
             if (pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && 
                 pos.y >= bbox.y && pos.y <= bbox.y + bbox.h) {
                 selectedIndex = i;
@@ -987,37 +968,45 @@
     }
     
     // --- Image/Template/Layer CRUD and Control Logic ---
-
-    // Template selection now updates canvas size
+    
+    // **ИСПРАВЛЕНО: Теперь возвращает Promise, чтобы обеспечить загрузку изображения.**
     function loadTemplateImage(url, targetW, targetH) {
-        const img = new Image();
-        img.onload = () => {
-            state.currentTemplate = img;
-            state.isCustomBackground = false;
-            
-            const oldWidth = canvas.width;
-            const oldHeight = canvas.height;
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                state.currentTemplate = img;
+                state.isCustomBackground = false;
+                
+                const oldWidth = canvas.width;
+                const oldHeight = canvas.height;
 
-            // Update canvas dimensions to match template's default size
-            canvas.width = targetW;
-            canvas.height = targetH;
-            
-            const widthRatio = targetW / oldWidth;
-            const heightRatio = targetH / oldHeight;
+                canvas.width = targetW;
+                canvas.height = targetH;
+                
+                const widthRatio = targetW / oldWidth;
+                const heightRatio = targetH / oldHeight;
 
-            // Reposition and rescale existing layers proportionally to the new canvas size
-            state.layers.forEach(layer => {
-                layer.x *= widthRatio;
-                layer.y *= heightRatio;
-                const scaleRatio = Math.min(widthRatio, heightRatio);
-                if (layer.type === 'text') { layer.fontSize *= scaleRatio; } 
-                else if (layer.type === 'image') { layer.scale *= scaleRatio; }
-            });
+                state.layers.forEach(layer => {
+                    layer.x *= widthRatio;
+                    layer.y *= heightRatio;
+                    const scaleRatio = Math.min(widthRatio, heightRatio);
+                    if (layer.type === 'text') { layer.fontSize *= scaleRatio; } 
+                    else if (layer.type === 'image') { layer.scale *= scaleRatio; }
+                });
 
-            resizeCanvases();
-            drawMeme();
-        };
-        img.src = url;
+                resizeCanvases();
+                drawMeme(); // Отрисовка после изменения размеров и загрузки
+                resolve();
+            };
+            img.onerror = (e) => {
+                console.error(`Error loading template image: ${url}`, e);
+                state.currentTemplate = null;
+                resizeCanvases();
+                drawMeme(); // Отрисовка даже без изображения
+                reject(e);
+            };
+            img.src = url;
+        });
     }
     
     // Custom upload background also updates canvas size
@@ -1026,7 +1015,6 @@
         renderTemplateSelector(); 
 
         const img = new Image();
-
         img.onload = () => {
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
@@ -1035,7 +1023,6 @@
             let targetW = img.width;
             let targetH = img.height;
             
-            // Limit the initial canvas size on upload
             const scaleFactor = Math.min(MAX_CANVAS_SIZE / img.width, MAX_CANVAS_SIZE / img.height, 1);
             targetW = img.width * scaleFactor;
             targetH = img.height * scaleFactor;
@@ -1057,6 +1044,10 @@
             resizeCanvases();
             drawMeme();
         };
+        img.onerror = (e) => {
+            console.error("Error loading custom background image:", e);
+            alert("Ошибка загрузки фонового изображения.");
+        };
         img.src = url;
     }
     
@@ -1067,8 +1058,9 @@
 
         if (selectedTemplate) {
             renderTemplateSelector();
-            loadTemplateImage(selectedTemplate.url, selectedTemplate.defaultW, selectedTemplate.defaultH);
-            closeSecondaryPanel();
+            // **Используем Promise, чтобы гарантировать последовательность**
+            loadTemplateImage(selectedTemplate.url, selectedTemplate.defaultW, selectedTemplate.defaultH)
+                .then(() => closeSecondaryPanel());
         }
     }
     
@@ -1082,7 +1074,6 @@
             bbox: { x: 0, y: 0, w: 0, h: 0 }
         };
         
-        // Auto-scale down large images relative to the canvas
         const MAX_LAYER_DIMENSION_RATIO = 0.5;
         if (newLayer.originalW > canvas.width * MAX_LAYER_DIMENSION_RATIO || newLayer.originalH > canvas.height * MAX_LAYER_DIMENSION_RATIO) {
             newLayer.scale = Math.min(
@@ -1136,44 +1127,48 @@
                 drawWidth = maxLineWidth + ctx.lineWidth * 2;
                 drawHeight = lines.length * lineSpacing + ctx.lineWidth * 2;
                 
-                // Draw selection box (unrotated rectangle)
                 if (index === state.selectedLayerIndex && !state.isDragging && !state.isLayerResizing) {
                     ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 4 / Math.min(Math.abs(scaleX), Math.abs(scaleY)); // Compensate for local scale
+                    ctx.lineWidth = 4 / Math.min(Math.abs(scaleX), Math.abs(scaleY)); 
                     ctx.strokeRect(-drawWidth / 2 - 2, -drawHeight / 2 - 2, drawWidth + 4, drawHeight + 4);
                 }
             } else if (layer.type === 'image') {
                 const img = layer.imageObject;
-                const renderW = img.width * layer.scale;
-                const renderH = img.height * layer.scale;
-                ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
-                drawWidth = renderW;
-                drawHeight = renderH;
-                
-                // Draw selection box (unrotated rectangle)
-                if (index === state.selectedLayerIndex && !state.isDragging && !state.isLayerResizing) {
-                    ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 4 / Math.min(Math.abs(scaleX), Math.abs(scaleY)); // Compensate for local scale
-                    ctx.strokeRect(-drawWidth / 2 - 2, -drawHeight / 2 - 2, drawWidth + 4, drawHeight + 4);
+                // **ПРОВЕРКА НА ГОТОВНОСТЬ**
+                if (img && img.complete && img.naturalWidth !== 0) { 
+                    const renderW = img.width * layer.scale;
+                    const renderH = img.height * layer.scale;
+                    ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
+                    drawWidth = renderW;
+                    drawHeight = renderH;
+                    
+                    if (index === state.selectedLayerIndex && !state.isDragging && !state.isLayerResizing) {
+                        ctx.strokeStyle = 'red';
+                        ctx.lineWidth = 4 / Math.min(Math.abs(scaleX), Math.abs(scaleY)); 
+                        ctx.strokeRect(-drawWidth / 2 - 2, -drawHeight / 2 - 2, drawWidth + 4, drawHeight + 4);
+                    }
+                } else {
+                    // Placeholder if image is not ready
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                    ctx.fillRect(-50, -50, 100, 100);
+                    ctx.fillStyle = 'black';
+                    ctx.fillText('Loading...', 0, 0);
                 }
             }
             
             ctx.restore();
             
             // Recalculate Bounding Box (Axis-Aligned Bounding Box, handles rotation)
-            // This calculates the bounding box of the rotated shape for accurate click detection.
-            if (layer.type === 'text' || layer.type === 'image') {
+            if (layer.type === 'text' || (layer.type === 'image' && drawWidth > 0)) {
                 const w = drawWidth;
                 const h = drawHeight;
                 const angle = layer.rotation * Math.PI / 180;
                 const cos = Math.cos(angle);
                 const sin = Math.sin(angle);
                 
-                // Half-dimensions
                 const hw = w / 2;
                 const hh = h / 2;
                 
-                // Four corners relative to center (0,0)
                 const corners = [
                     { x: -hw * cos - hh * sin, y: -hw * sin + hh * cos },
                     { x: hw * cos - hh * sin, y: hw * sin + hh * cos },
@@ -1181,7 +1176,6 @@
                     { x: hw * cos + hh * sin, y: hw * sin - hh * cos }
                 ];
                 
-                // Find min/max X/Y values
                 const minX = Math.min(...corners.map(c => c.x)) + layer.x;
                 const maxX = Math.max(...corners.map(c => c.x)) + layer.x;
                 const minY = Math.min(...corners.map(c => c.y)) + layer.y;
@@ -1239,31 +1233,29 @@
             document.getElementById('flipYBtn').classList.toggle('selected-item', layer.flipY);
             
             if (layer.type === 'text') {
-                 // Text-specific controls update
                 textControls.style.display = 'block';
                 document.getElementById('currentTextContent').value = layer.content;
                 document.getElementById('textColorInput').value = layer.color;
                 document.getElementById('fontSizeSelect').value = layer.fontSize.toString();
                 document.getElementById('boldBtn').classList.toggle('selected-item', layer.isBold);
                 document.getElementById('italicBtn').classList.toggle('selected-item', layer.isItalic);
+                renderFontSelector(); // Обновление селектора шрифтов
             } 
             else if (layer.type === 'image') {
-                // Image-specific controls update
                 imageControls.style.display = 'block';
                 document.getElementById('scaleSlider').value = layer.scale;
                 document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
             }
         }
-        updateLayerResizeHandlePosition(); // Crucial: Update handle display/position
+        updateLayerResizeHandlePosition(); 
     }
 
     // --- Other Layer/Control Functions ---
     
     function renderTemplateSelector() {
         const container = document.getElementById('templateSelector');
-        container.innerHTML = ''; // Clear previous content
+        container.innerHTML = ''; 
 
-        // Add "Custom Background" button
         const customBtn = document.createElement('button');
         customBtn.textContent = state.isCustomBackground ? '✅ Custom BG' : 'Custom BG';
         customBtn.className = 'control-button p-3 rounded-lg font-bold w-full text-center';
@@ -1287,6 +1279,7 @@
         stickers.forEach(sticker => {
             const button = document.createElement('button');
             button.className = 'control-button p-2 rounded-lg';
+            // **ИСПРАВЛЕНО:** Теперь вызываем addPresetImageLayer с url, чтобы гарантировать загрузку.
             button.onclick = () => addPresetImageLayer(sticker.url, sticker.id);
             
             const img = document.createElement('img');
@@ -1302,10 +1295,12 @@
     function renderFontSelector() {
         const container = document.getElementById('fontSelector');
         container.innerHTML = '';
+        const currentLayer = state.layers[state.selectedLayerIndex];
+        
         fonts.forEach(font => {
             const button = document.createElement('button');
             button.textContent = font.name;
-            button.className = `control-button px-3 py-1 rounded text-sm ${state.layers[state.selectedLayerIndex]?.fontId === font.id ? 'selected-item' : ''}`;
+            button.className = `control-button px-3 py-1 rounded text-sm ${currentLayer?.fontId === font.id ? 'selected-item' : ''}`;
             button.style.fontFamily = `'${font.family}', ${font.fallback}`;
             button.onclick = () => updateFontFamily(font.id);
             container.appendChild(button);
@@ -1337,7 +1332,7 @@
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
             layer.fontId = fontId;
-            renderFontSelector(); // Redraw selectors to highlight the selected one
+            renderFontSelector(); 
             drawMeme();
         }
     }
@@ -1368,20 +1363,20 @@
     }
 
     function addPresetImageLayer(url, id) {
-        if (state.stickerImages[id]) {
-            createImageLayerObject(url, state.stickerImages[id]);
+        // **ИСПРАВЛЕНО: В любом случае создаем новое изображение, чтобы не использовать кэшированное**
+        // Хотя кэширование обычно хорошо, при первом добавлении нужно обеспечить загрузку.
+        const img = new Image();
+        img.onload = () => {
+            state.stickerImages[id] = img; // Обновляем кэш
+            createImageLayerObject(url, img);
             closeSecondaryPanel();
             drawMeme();
-        } else {
-            const img = new Image();
-            img.onload = () => {
-                state.stickerImages[id] = img;
-                createImageLayerObject(url, img);
-                closeSecondaryPanel();
-                drawMeme();
-            };
-            img.src = url;
-        }
+        };
+        img.onerror = (e) => {
+             console.error(`Error loading sticker image: ${url}`, e);
+             alert(`Ошибка загрузки стикера (${id}). Проверьте файл.`);
+        };
+        img.src = url;
     }
 
     function handleImageUpload(event) {
@@ -1407,6 +1402,10 @@
         img.onload = () => {
             createImageLayerObject(url, img, name);
             drawMeme();
+        };
+        img.onerror = (e) => {
+             console.error(`Error loading uploaded image: ${url}`, e);
+             alert("Ошибка загрузки изображения-слоя. Возможно, файл поврежден.");
         };
         img.src = url;
     }
@@ -1464,7 +1463,6 @@
             alert("BaseApp connection not established. Please try refreshing the app.");
             return;
         }
-        // In a real app, you would send the dataURL to the BaseApp backend/smart contract.
         alert(`Simulating post to BaseApp as ${BaseAccountSDK.userInfo.username}. Image has been downloaded.`);
         downloadMeme(false);
     }
